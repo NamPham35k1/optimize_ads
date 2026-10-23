@@ -138,22 +138,47 @@ export class MetaMarketingApiClient implements IMetaClient {
 
   public async debugToken(accessToken: string) {
     try {
-      const result = await this.request<any>('/debug_token', {
-        input_token: accessToken,
-        access_token: `${config.metaAppId}|${config.metaAppSecret}` || accessToken,
+      // 1. If App ID and Secret are configured, try /debug_token
+      if (config.metaAppId && config.metaAppSecret && config.metaAppId.trim()) {
+        try {
+          const result = await this.request<any>('/debug_token', {
+            input_token: accessToken,
+            access_token: `${config.metaAppId}|${config.metaAppSecret}`,
+          });
+
+          const data = result.data;
+          if (data?.is_valid === true) {
+            return {
+              isValid: true,
+              scopes: data?.scopes || [],
+              expiresAt: data?.expires_at ? new Date(data.expires_at * 1000) : undefined,
+              userId: data?.user_id,
+            };
+          }
+        } catch (debugErr: any) {
+          console.warn('[MetaAPI] /debug_token with App Secret failed, falling back to /me & /me/permissions:', debugErr.message);
+        }
+      }
+
+      // 2. Direct validation using User Access Token via /me and /me/permissions
+      // Works reliably for any User Token from Graph API Explorer without needing META_APP_ID or META_APP_SECRET
+      const me = await this.request<any>('/me', {
+        fields: 'id,name',
+        access_token: accessToken,
       });
 
-      const data = result.data;
-      const isValid = data?.is_valid === true;
-      const scopes = data?.scopes || [];
-      const expiresAt = data?.expires_at ? new Date(data.expires_at * 1000) : undefined;
-      const userId = data?.user_id;
+      const perms = await this.request<any>('/me/permissions', {
+        access_token: accessToken,
+      });
+
+      const grantedScopes = (perms.data || [])
+        .filter((p: any) => p.status === 'granted')
+        .map((p: any) => p.permission);
 
       return {
-        isValid,
-        scopes,
-        expiresAt,
-        userId,
+        isValid: true,
+        scopes: grantedScopes,
+        userId: me.id,
       };
     } catch (err: any) {
       return {
