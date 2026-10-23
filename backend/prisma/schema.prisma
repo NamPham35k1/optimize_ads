@@ -1,0 +1,270 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      String   @default("ADMIN")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  connectedAccounts ConnectedAccount[]
+  auditLogs         AuditLog[]
+}
+
+model ConnectedAccount {
+  id                   String      @id @default(cuid())
+  userId               String
+  platform             String      @default("META")
+  metaUserId           String
+  accountName          String
+  accessTokenEncrypted String
+  tokenExpiresAt       DateTime?
+  scopes               String      @default("ads_read,ads_management,read_insights")
+  isValid              Boolean     @default(true)
+  lastVerifiedAt       DateTime    @default(now())
+  isMock               Boolean     @default(false)
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adAccounts AdAccount[]
+}
+
+model AdAccount {
+  id                  String   @id @default(cuid())
+  connectedAccountId  String
+  facebookAdAccountId String   @unique
+  name                String
+  currency            String   @default("VND")
+  timezoneName        String   @default("Asia/Ho_Chi_Minh")
+  accountStatus       Int      @default(1)
+  balance             Float    @default(0)
+  spendCap            Float?
+  minDailyBudget      Float?
+  isMonitored         Boolean  @default(true)
+  isMock              Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  connectedAccount   ConnectedAccount    @relation(fields: [connectedAccountId], references: [id], onDelete: Cascade)
+  campaignSnapshots  CampaignSnapshot[]
+  adSetSnapshots     AdSetSnapshot[]
+  adSnapshots        AdSnapshot[]
+  performanceMetrics PerformanceMetric[]
+  careRules          CareRule[]
+  ruleEvaluations    RuleEvaluation[]
+  automationActions  AutomationAction[]
+  notifications      Notification[]
+}
+
+model CampaignSnapshot {
+  id               String   @id @default(cuid())
+  adAccountId      String
+  fbCampaignId     String   @unique
+  name             String
+  objective        String
+  status           String   @default("ACTIVE")
+  effectiveStatus  String   @default("ACTIVE")
+  buyingType       String?  @default("AUCTION")
+  dailyBudget      Float?
+  lifetimeBudget   Float?
+  isPausedBySystem Boolean  @default(false)
+  lastSyncedAt     DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  adAccount      AdAccount       @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+  adSetSnapshots AdSetSnapshot[]
+  adSnapshots    AdSnapshot[]
+}
+
+model AdSetSnapshot {
+  id                 String   @id @default(cuid())
+  campaignSnapshotId String
+  adAccountId        String
+  fbAdSetId          String   @unique
+  fbCampaignId       String
+  name               String
+  status             String   @default("ACTIVE")
+  effectiveStatus    String   @default("ACTIVE")
+  dailyBudget        Float?
+  lifetimeBudget     Float?
+  billingEvent       String?  @default("IMPRESSIONS")
+  optimizationGoal   String?  @default("MESSAGING_CONVERSATION_STARTED_7D")
+  isPausedBySystem   Boolean  @default(false)
+  lastSyncedAt       DateTime @default(now())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  adAccount        AdAccount        @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+  campaignSnapshot CampaignSnapshot @relation(fields: [campaignSnapshotId], references: [id], onDelete: Cascade)
+  adSnapshots      AdSnapshot[]
+}
+
+model AdSnapshot {
+  id                 String   @id @default(cuid())
+  adSetSnapshotId    String
+  campaignSnapshotId String
+  adAccountId        String
+  fbAdId             String   @unique
+  fbAdSetId          String
+  fbCampaignId       String
+  name               String
+  status             String   @default("ACTIVE")
+  effectiveStatus    String   @default("ACTIVE")
+  isPausedBySystem   Boolean  @default(false)
+  lastSyncedAt       DateTime @default(now())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  adAccount        AdAccount        @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+  adSetSnapshot    AdSetSnapshot    @relation(fields: [adSetSnapshotId], references: [id], onDelete: Cascade)
+  campaignSnapshot CampaignSnapshot @relation(fields: [campaignSnapshotId], references: [id], onDelete: Cascade)
+}
+
+model PerformanceMetric {
+  id                     String   @id @default(cuid())
+  adAccountId            String
+  entityType             String   // "CAMPAIGN", "ADSET", "AD"
+  entityId               String
+  datePreset             String   // "TODAY", "YESTERDAY", "LAST_3D", "LAST_7D", "LIFETIME"
+  spend                  Float    @default(0)
+  impressions            Int      @default(0)
+  clicks                 Int      @default(0)
+  cpm                    Float    @default(0)
+  cpc                    Float    @default(0)
+  ctr                    Float    @default(0)
+  messagingConversations Int      @default(0)
+  costPerMessaging       Float    @default(0)
+  leads                  Int      @default(0)
+  purchases              Int      @default(0)
+  rawActionData          String?
+  fetchedAt              DateTime @default(now())
+
+  adAccount AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+
+  @@index([adAccountId, entityType, entityId, datePreset])
+}
+
+model CareRule {
+  id                           String    @id @default(cuid())
+  adAccountId                  String
+  name                         String
+  scope                        String    @default("ADSET") // "CAMPAIGN", "ADSET", "AD"
+  targetMode                   String    @default("ALL_ACTIVE") // "ALL_ACTIVE", "SELECTED"
+  targetEntityIds              String    @default("[]") // JSON array string
+  metricType                   String    @default("COST_PER_MESSAGING") // "COST_PER_MESSAGING", "SPEND_WITHOUT_MESSAGES", "CPM", "CPC", "CTR"
+  operator                     String    @default("GREATER_THAN") // "GREATER_THAN", "GREATER_THAN_OR_EQUAL", "LESS_THAN", "LESS_THAN_OR_EQUAL"
+  thresholdValue               Float
+  currency                     String    @default("VND")
+  reportingWindow              String    @default("TODAY") // "TODAY", "YESTERDAY", "LAST_3D", "LAST_7D"
+  minResults                   Int       @default(3)
+  minSpend                     Float     @default(0)
+  consecutiveViolationsRequired Int      @default(2)
+  checkIntervalMinutes         Int       @default(15)
+  action                       String    @default("PAUSE") // "PAUSE", "NOTIFY_ONLY"
+  isDryRun                     Boolean   @default(true) // Crucial safety default!
+  isEnabled                    Boolean   @default(true)
+  currentConsecutiveViolations Int       @default(0)
+  lastCheckedAt                DateTime?
+  lastViolatedAt               DateTime?
+  createdAt                    DateTime  @default(now())
+  updatedAt                    DateTime  @updatedAt
+
+  adAccount       AdAccount        @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+  ruleEvaluations RuleEvaluation[]
+  automationActions AutomationAction[]
+}
+
+model RuleEvaluation {
+  id               String   @id @default(cuid())
+  ruleId           String
+  adAccountId      String
+  entityType       String
+  entityId         String
+  entityName       String
+  evaluationTime   DateTime @default(now())
+  metricType       String
+  currentValue     Float
+  thresholdValue   Float
+  conditionMet     Boolean
+  consecutiveCount Int      @default(0)
+  actionProposed   String
+  actionTaken      String   // "DRY_RUN", "PAUSED", "SKIPPED", "NONE"
+  status           String   // "PASSED", "VIOLATED", "DRY_RUN_LOGGED", "EXECUTED", "SKIPPED", "FAILED"
+  details          String?  // JSON formatted details
+
+  rule      CareRule  @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  adAccount AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId, evaluationTime])
+  @@index([adAccountId, entityId])
+}
+
+model AutomationAction {
+  id               String   @id @default(cuid())
+  ruleId           String
+  adAccountId      String
+  entityType       String
+  entityId         String
+  entityName       String
+  actionType       String   @default("PAUSE")
+  status           String   @default("PENDING") // "SUCCESS", "DRY_RUN", "FAILED", "BLOCKED_BY_SAFETY"
+  preActionStatus  String?
+  postActionStatus String?
+  apiResponse      String?  // JSON formatted response
+  errorMessage     String?
+  isVerified       Boolean  @default(false)
+  executedAt       DateTime @default(now())
+
+  rule      CareRule  @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  adAccount AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+
+  @@index([adAccountId, entityId, executedAt])
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  adAccountId String?
+  ruleId      String?
+  title       String
+  message     String
+  severity    String   @default("INFO") // "INFO", "WARNING", "CRITICAL", "SUCCESS"
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  adAccount AdAccount? @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  userId       String?
+  action       String
+  resourceType String
+  resourceId   String?
+  details      String?  // JSON string
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @default(now())
+}
