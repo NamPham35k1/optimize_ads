@@ -1,206 +1,293 @@
-# AUTO ADS CARE — HỆ THỐNG TỰ ĐỘNG QUẢN LÝ FACEBOOK ADS
+# 🛡️ AUTO ADS CARE — HỆ THỐNG TỰ ĐỘNG CANH & TỐI ƯU CHIẾN DỊCH FACEBOOK ADS
 
-> Hệ thống tự động giám sát, phân tích hiệu suất và tối ưu quảng cáo Facebook (Meta Marketing API) với trọng tâm là chiến dịch Tin nhắn (Click-to-Messenger). 
-> Tự động phát hiện và tạm dừng các nhóm quảng cáo vượt ngưỡng chi phí, bảo vệ ngân sách quảng cáo với cơ chế an toàn đa tầng (Dry Run, Emergency Stop, Idempotency, Post-Action Verification).
+> **Giải pháp tự động hóa bảo vệ ngân sách quảng cáo Facebook (Meta Marketing API) 24/7.**  
+> Tự động quét số liệu định kỳ, phát hiện và tạm dừng (Pause) các chiến dịch / nhóm quảng cáo vượt ngưỡng chi phí, chống đốt tiền vô ích với cơ chế an toàn đa tầng (Dry Run, Xác thực 2 bước, Emergency Stop).
 
 ---
 
-## 1. TỔNG QUAN KIẾN TRÚC
+## 📑 MỤC LỤC
+1. [Tổng Quan & Cơ Chế Hoạt Động](#1-tổng-quan--cơ-chế-hoạt-động)
+2. [Hướng Dẫn Khởi Chạy Nhanh (Local & Docker)](#2-hướng-dẫn-khởi-chạy-nhanh-local--docker)
+3. [Hướng Dẫn Từng Bước Lấy Token Meta API](#3-hướng-dẫn-từng-bước-lấy-token-meta-api)
+4. [Hướng Dẫn Kết Nối Tài Khoản Quảng Cáo](#4-hướng-dẫn-kết-nối-tài-khoản-quảng-cáo)
+5. [Giải Thích Toàn Bộ Thông Số Cần Nhập (Rule Inputs)](#5-giải-thích-toàn-bộ-thông-số-cần-nhập-rule-inputs)
+6. [3 Kịch Bản Thực Chiến Canh Mốc Khuyên Dùng](#6-3-kịch-bản-thực-chiến-canh-mốc-khuyên-dùng)
+7. [Cơ Chế Tự Động Ngầm (Scheduler) & An Toàn](#7-cơ-chế-tự-động-ngầm-scheduler--an-toàn)
+8. [Xử Lý Sự Cố Thường Gặp (Troubleshooting)](#8-xử-lý-sự-cố-thường-gặp-troubleshooting)
+9. [Kiến Trúc Kỹ Thuật & Lệnh Dành Cho Developer](#9-kiến-trúc-kỹ-thuật--lệnh-dành-cho-developer)
 
-Hệ thống được thiết kế theo kiến trúc module hóa phân tán, tách biệt giữa Web Server, Background Care Scheduler, Meta Marketing API Gateway và Data Storage:
+---
 
+## 1. TỔNG QUAN & CƠ CHẾ HOẠT ĐỘNG
+
+### 🎯 Công cụ này giải quyết vấn đề gì?
+Khi chạy quảng cáo Facebook (đặc biệt là dạng Tin nhắn Messenger), bạn thường gặp các rủi ro:
+* Nhóm quảng cáo cắn cả trăm nghìn đồng nhưng **không ra bất kỳ tin nhắn nào** khi bạn bận việc hoặc đang ngủ.
+* Giá mỗi tin nhắn (CPA) bị **đội lên quá cao** (gấp 2–3 lần bình thường) mà không kịp tắt thủ công.
+* Facebook delay cập nhật số liệu dẫn đến việc tắt oan các nhóm quảng cáo tiềm năng.
+
+### ⚙️ Cơ chế hoạt động của Tool
+Tool đóng vai trò như một **"trợ lý canh camp 24/7"**:
 ```
-┌───────────────────────────────────────────────────────────┐
-│              FRONTEND (React + TS + Tailwind)            │
-│  - Dashboard KPI & Biểu Đồ Recharts                       │
-│  - Quản Lý Tài Khoản Ads & Kết Nối Meta API               │
-│  - Danh Sách Chiến Dịch / AdSet / Ad (Cây dữ liệu)        │
-│  - Rule Builder (Trung tâm thiết lập quy tắc tự động)     │
-│  - Rule Simulator (Mô phỏng thử nghiệm trước khi bật)     │
-│  - Automation Logs (Lịch sử audit chi tiết)               │
-└──────────────┬────────────────────────────▲───────────────┘
-               │ HTTP / REST API            │
-               ▼                            │
-┌───────────────────────────────────────────────────────────┐
-│               BACKEND (Node.js + Express + TS)            │
-│  - Authentication & AES-256 Token Encryption              │
-│  - Controllers: Account, Campaign, Rule, Audit, System    │
-│  - REST Endpoints & Error Boundary                        │
-└──────┬──────────────────────┬──────────────────────┬──────┘
-       │                      │                      │
-       ▼                      ▼                      ▼
-┌──────────────┐      ┌──────────────┐      ┌─────────────────────────┐
-│  PRISMA ORM  │      │ CARE ENGINE  │      │ META API INTEGRATION    │
-│ (PostgreSQL/ │      │ - Scheduler  │      │ - Metric Resolver       │
-│   SQLite)    │      │ - Matcher    │      │ - Graph API Client      │
-│              │      │ - Evaluator  │      │ - Mock Mode Gateway     │
-│              │      │ - Safety Mgr │      │ - Token Debugger        │
-└──────────────┘      └──────────────┘      └─────────────────────────┘
+┌──────────────────────────────────────┐       ┌──────────────────────────────────────┐
+│       SỐ LIỆU TỪ FACEBOOK            │       │         MỐC BẠN CÀI TRONG TOOL       │
+│  (Cứ mỗi 2-15 phút gọi API hỏi 1 lần)│       │          (Ngưỡng bạn chịu được)      │
+│                                      │       │                                      │
+│  Ví dụ Nhóm 1:                       │  VS   │  Ví dụ Quy tắc:                      │
+│  - Tiêu hết: 120.000 VNĐ             │       │  - Tiêu > 100.000 VNĐ mà 0 tin nhắn  │
+│  - Tin nhắn ra: 0 tin nhắn           │       │    => Lập tức TẮT (PAUSE)            │
+└──────────────────────────────────────┘       └──────────────────────────────────────┘
+                                  │
+                                  ▼
+                   Tool phát hiện: 120.000đ > 100.000đ
+                   => Gửi lệnh sang Facebook: TẮT NGAY NHÓM 1!
 ```
 
 ---
 
-## 2. CÁC TÍNH NĂNG CHÍNH
-
-### A. Dashboard Phân Tích Hiệu Suất
-- Hiển thị đầy đủ các KPI: Tổng chi tiêu hôm nay, tổng chi tiêu khoảng thời gian, tổng số tin nhắn, chi phí trung bình/tin nhắn (CPA), số chiến dịch đang chạy/tạm dừng, số đối tượng bị hệ thống tự động tắt, số đối tượng vượt ngưỡng.
-- Biểu đồ trực quan bằng **Recharts**: Biểu đồ kết hợp Chi tiêu & Số tin nhắn, Biểu đồ xu hướng CPA theo thời gian so với ngưỡng mục tiêu.
-
-### B. Quản Lý Tài Khoản Meta
-- Kết nối thông qua Access Token chính thức của Meta Marketing API (`ads_read`, `ads_management`, `read_insights`).
-- **Bảo mật tuyệt đối**: Không yêu cầu mật khẩu Facebook, Token được mã hóa AES-256-GCM ở backend và không bao giờ trả về frontend.
-- Tự động phát hiện token hết hạn, thiếu quyền hoặc tài khoản bị vô hiệu hóa.
-- Chuyển đổi linh hoạt giữa tài khoản Live thật và tài khoản **Mock Demo**.
-
-### C. Quản Lý Chiến Dịch & Nhóm Quảng Cáo (Hierarchy View)
-- Bảng dữ liệu dạng cây: Campaign ➔ Ad Set ➔ Ad.
-- Cột chỉ số chính xác: Tên, ID, Trạng thái (Đang chạy, Tạm dừng, Hệ thống tự tắt), Chi tiêu, Số tin nhắn, Chi phí/tin nhắn, CPM, CPC, CTR.
-- Bộ lọc theo trạng thái, tìm kiếm và sắp xếp theo chi phí.
-
-### D. Rule Builder — Trung Tâm Thiết Lập Quy Tắc
-- Tự do cấu hình quy tắc mà không cần sửa code:
-  - **Phạm vi**: Campaign, Ad Set hoặc Ad.
-  - **Đối tượng**: Tất cả đối tượng Active hoặc chỉ định cụ thể.
-  - **Chỉ số giám sát**:
-    - `COST_PER_MESSAGING`: Chi phí / cuộc trò chuyện tin nhắn mới.
-    - `SPEND_WITHOUT_MESSAGES`: Chi tiêu vượt ngưỡng khi chưa có tin nhắn nào.
-    - `CPM`, `CPC`, `CTR`, `TOTAL_SPEND`.
-  - **Toán tử**: `>`, `>=`, `<`, `<=`.
-  - **Số kết quả tối thiểu (`minResults`)**: Tránh tắt oan quảng cáo mới chạy chưa đủ dữ liệu thống kê.
-  - **Số lần kiểm tra liên tiếp (`consecutiveViolationsRequired`)**: Xác nhận vi phạm bền vững trước khi hành động (ví dụ: vi phạm 2 lần liên tiếp).
-  - **Chu kỳ kiểm tra**: 15 phút, 30 phút, 1 giờ, v.v.
-  - **Hành động**: Tạm dừng (PAUSE) hoặc Chỉ gửi cảnh báo (NOTIFY_ONLY).
-
-### E. Rule Simulator — Mô Phỏng Kiểm Thử
-- Cho phép người dùng chạy thử quy tắc trên dữ liệu thực tế trước khi bật.
-- Báo cáo rõ: Đối tượng nào sẽ bị ảnh hưởng, số liệu hiện tại, lý do quyết định, hành động dự kiến.
-- Đảm bảo 100% không làm thay đổi trạng thái quảng cáo thật khi mô phỏng.
-
-### F. Cơ Chế An Toàn Đa Tầng (Safety Rules)
-1. **Mặc định Dry Run**: Mọi quy tắc mới tạo luôn ở chế độ Dry Run an toàn.
-2. **Xác nhận kích hoạt Live Mode**: Yêu cầu xác nhận rõ ràng trước khi cho phép gửi lệnh ghi lên Meta API.
-3. **Emergency Stop (Công tắc dừng khẩn cấp)**: Nút dừng khẩn cấp toàn cục trên Header; khi bật sẽ đóng băng lập tức 100% các hành vi tắt quảng cáo tự động.
-4. **Idempotency & Pre-check**: Kiểm tra trạng thái đối tượng trên Meta trước khi gửi lệnh. Nếu đã PAUSED thì bỏ qua để tránh gọi API trùng lặp.
-5. **Post-Action Verification**: Sau khi gửi lệnh tắt, re-query API để xác nhận trạng thái thực tế đã chuyển sang PAUSED. Nếu API thất bại, không báo thành công giả lập.
-6. **Không tự bật lại quảng cáo**: Hệ thống chỉ tạm dừng để bảo toàn ngân sách; không tự tiện bật lại các quảng cáo đã tắt.
-7. **Phân biệt trạng thái**: Đánh dấu rõ cờ `isPausedBySystem: true` để phân biệt đối tượng do tool tắt và đối tượng do người dùng chủ động tắt trên Ads Manager.
-
----
-
-## 3. CÔNG NGHỆ SỬ DỤNG
-
-- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons, Recharts.
-- **Backend**: Node.js 22, Express, TypeScript, Prisma ORM, node-cron.
-- **Bảo mật**: Node Crypto (`aes-256-gcm`, SHA-256).
-- **Cơ sở dữ liệu**: SQLite (Zero-config local run) & PostgreSQL ready.
-- **Kiểm thử**: Vitest (13 tests bao quát Unit & Safety).
-- **Deployment**: Docker, Docker Compose, Nginx.
-
----
-
-## 4. HƯỚNG DẪN CÀI ĐẶT & CHẠY LOCAL
+## 2. HƯỚNG DẪN KHỞI CHẠY NHANH (LOCAL & DOCKER)
 
 ### Yêu Cầu Môi Trường
-- Node.js >= 20.x (Đã kiểm thử trên Node v22.20.0)
-- npm >= 10.x
+* **Node.js** >= 20.x (Khuyên dùng v20 hoặc v22)
+* **npm** >= 10.x
 
-### Bước 1: Cài đặt Dependencies
-Từ thư mục gốc dự án:
+### Chạy Trên Máy Tính (Local)
+
+1. **Cài đặt thư viện dependencies:**
+   ```bash
+   npm install
+   ```
+
+2. **Khởi tạo cơ sở dữ liệu (SQLite tự động cấu hình):**
+   ```bash
+   npm run prisma:generate
+   npm run prisma:migrate
+   ```
+
+3. **Khởi chạy cả Backend & Frontend cùng lúc:**
+   ```bash
+   npm run dev
+   ```
+
+4. **Truy cập ứng dụng:**
+   * Giao diện Web: **`http://localhost:3000`**
+   * Backend Healthcheck: **`http://localhost:5000/health`**
+
+*(Hoặc nếu muốn chạy 2 terminal riêng biệt: `npm run dev:backend` tại port 5000 và `npm run dev:frontend` tại port 3000).*
+
+### Chạy Bằng Docker (Nếu có Docker)
 ```bash
-npm install
-```
-
-### Bước 2: Khởi tạo Cơ Sở Dữ Liệu
-```bash
-npm run prisma:generate
-npm run prisma:migrate
-```
-
-### Bước 3: Khởi chạy Ứng Dụng (Cả Backend & Frontend)
-Chỉ cần chạy lệnh sau để khởi động song song cả 2 dịch vụ:
-```bash
-npm run dev
-```
-
-Hoặc chạy riêng từng phần nếu muốn:
-```bash
-# Terminal 1: Backend (Chạy tại port 5000)
-npm run dev:backend
-
-# Terminal 2: Frontend (Chạy tại port 3000)
-npm run dev:frontend
-```
-
-Truy cập giao diện Web tại: **`http://localhost:3000`**  
-Backend Healthcheck: **`http://localhost:5000/health`**
-
----
-
-## 5. HƯỚNG DẪN CHẠY TEST
-
-Dự án bao gồm bộ test toàn diện kiểm tra tính toán chi phí tin nhắn, điều kiện đánh giá, bảo mật token và cơ chế an toàn Emergency Stop:
-
-```bash
-npm run test
-```
-
-Kết quả:
-```
-✓ tests/metric-resolver.test.ts (4 tests)
-✓ tests/condition-matcher.test.ts (4 tests)
-✓ tests/encryption.test.ts (3 tests)
-✓ tests/action-executor.test.ts (2 tests)
-
-Test Files  4 passed (4)
-Tests       13 passed (13)
-```
-
----
-
-## 6. HƯỚNG DẪN TRIỂN KHAI VỚI DOCKER
-
-Dự án đã có sẵn cấu hình `docker-compose.yml`, `Dockerfile.backend` và `Dockerfile.frontend`:
-
-```bash
-# Tạo file môi trường từ mẫu
 cp backend/.env.example .env
-
-# Khởi động cụm container
 docker-compose up -d --build
 ```
-- Frontend: `http://localhost:3000`
-- Backend API: `http://localhost:5000`
+* Web chạy tại: `http://localhost:3000`
 
 ---
 
-## 7. CẤU HÌNH TÍCH HỢP META MARKETING API THẬT
+## 3. HƯỚNG DẪN TỪNG BƯỚC LẤY TOKEN META API
 
-1. Truy cập [Meta for Developers](https://developers.facebook.com/apps/) và tạo ứng dụng loại **Business**.
-2. Thêm sản phẩm **Marketing API**.
-3. Điền các biến vào file `backend/.env`:
-   ```env
-   META_APP_ID=your_app_id
-   META_APP_SECRET=your_app_secret
-   META_API_VERSION=v22.0
-   ```
-4. Lấy User Access Token có quyền:
-   - `ads_read`
-   - `ads_management`
-   - `read_insights`
-5. Mở tab **"Tài Khoản Ads"** trên giao diện, bấm **"Kết Nối Tài Khoản Thật (Live)"** và dán token. Hệ thống sẽ tự động xác thực qua `/debug_token`, tải danh sách tài khoản quảng cáo và bắt đầu giám sát an toàn.
+> [!NOTE]
+> Tool **không bao giờ yêu cầu mật khẩu Facebook** của bạn. Tool chỉ dùng chuỗi mã hóa **Meta Access Token** do chính Facebook cấp để thay mặt bạn đọc báo cáo và tắt quảng cáo vi phạm.
+
+### Bước 1: Mở công cụ tạo Token chính thức của Facebook
+1. Đăng nhập nick Facebook đang nắm quyền quản trị viên các tài khoản quảng cáo.
+2. Mở trình duyệt và truy cập: **[Meta Graph API Explorer](https://developers.facebook.com/tools/explorer/)**
+3. Nếu bạn chưa từng đăng ký tài khoản Nhà phát triển Facebook, hệ thống sẽ hiện thông báo xác nhận: bạn chỉ cần bấm **Tiếp tục** -> Đồng ý điều khoản.
+
+### Bước 2: Chọn App và Cấp quyền (Permissions)
+Ở bảng điều khiển bên phải màn hình **Graph API Explorer**:
+1. **Meta App**: Chọn ứng dụng doanh nghiệp của bạn (nếu chưa có, bấm Tạo App -> Chọn loại Doanh nghiệp/Business).
+2. **User or Page**: Chọn **User Token** (Mã truy cập người dùng).
+3. Tại ô **Add a permission** (Thêm quyền), lần lượt tìm kiếm và chọn đúng **3 quyền bắt buộc sau**:
+   * `ads_read`: Cho phép tool đọc danh sách camp, chi tiêu, số tin nhắn, cpm, ctr.
+   * `ads_management`: Cho phép tool gửi lệnh Tắt (PAUSE) khi phát hiện vi phạm.
+   * `read_insights`: Cho phép tool trích xuất chỉ số phân tích hiệu suất chuyên sâu.
+
+### Bước 3: Tạo và Sao Chép Mã Token
+1. Bấm nút màu xanh **Generate Access Token** (Tạo mã truy cập).
+2. Facebook sẽ hiển thị popup cấp quyền ➔ Bấm **Tiếp tục dưới tên bạn**.
+3. Tại ô text **Access Token**, bạn sẽ nhận được một chuỗi ký tự rất dài bắt đầu bằng `EAAB...` hoặc `EAA...`.
+4. Bấm nút sao chép (Copy) chuỗi ký tự đó để sẵn sàng dán vào Tool.
+
+> [!TIP]
+> **Cách kéo dài thời hạn Token (Long-lived Token 60 ngày):**  
+> Token lấy nhanh tại Graph API Explorer thường có hạn 1–2 giờ. Để lấy Token chạy ổn định 60 ngày hoặc vĩnh viễn, bạn vào công cụ **Access Token Debugger** của Facebook (`developers.facebook.com/tools/debug/accesstoken`), dán token vào và bấm **Extend Access Token** (Kéo dài mã truy cập).
 
 ---
 
-## 8. BẢNG TRẠNG THÁI TÍNH NĂNG
+## 4. HƯỚNG DẪN KẾT NỐI TÀI KHOẢN QUẢNG CÁO
 
-| Tính Năng | Trạng Thái | Ghi Chú |
-|:---|:---:|:---|
-| Dashboard KPIs & Biểu đồ Recharts | ✅ Hoạt động | Đầy đủ chi tiêu, tin nhắn, CPA, xu hướng 7 ngày |
-| Quản lý tài khoản & Chuyển đổi Live / Mock | ✅ Hoạt động | Sẵn sàng cả Mock và Live Token |
-| Bảng chiến dịch phân cấp (Campaign ➔ AdSet ➔ Ad) | ✅ Hoạt động | Hiển thị chi tiêu, tin nhắn, CPA, CPM, CPC, CTR |
-| Rule Builder tùy biến mọi điều kiện | ✅ Hoạt động | Hỗ trợ chi phí tin nhắn, 0 tin nhắn, CPM, CPC |
-| Rule Simulator mô phỏng trước khi áp dụng | ✅ Hoạt động | Test rule an toàn trên dữ liệu hiện tại |
-| Background Scheduler (Worker độc lập) | ✅ Hoạt động | Tự động chạy chu kỳ kiểm tra định kỳ |
-| Emergency Stop (Dừng khẩn cấp toàn cục) | ✅ Hoạt động | Đóng băng ngay tức khắc mọi lệnh ghi API |
-| Mã hóa AES-256 Token ở Database | ✅ Hoạt động | Token không bao giờ lộ về frontend |
-| Bộ kiểm thử Unit & Integration Tests | ✅ Hoạt động | 13/13 tests passed |
+1. Mở giao diện Web của Tool tại `http://localhost:3000`.
+2. Bấm vào tab **"Tài Khoản Ads"** ở thanh điều hướng bên trái.
+3. Bấm nút xanh **"Kết Nối Tài Khoản Thật (Live)"**.
+4. Điền các trường thông tin:
+   * **Tên gợi nhớ**: Ví dụ: *Tài khoản cá nhân*, *BM Agency ABC*...
+   * **Meta User Access Token**: Dán chuỗi `EAA...` vừa copy ở Bước 3.
+5. Bấm **"Kiểm Tra & Kết Nối"**:
+   * Tool sẽ gửi lệnh lên máy chủ Meta để xác thực quyền hạn.
+   * Khi xác thực thành công, hệ thống tự động tải toàn bộ cây tài khoản quảng cáo, chiến dịch và nhóm quảng cáo về giao diện.
+6. *(Tùy chọn)* Nếu bạn chỉ muốn chạy thử nghiệm không cần tài khoản thật, bấm nút **"Tạo Dữ Liệu Demo Mock"** để trải nghiệm trước với dữ liệu giả lập thực tế.
+
+---
+
+## 5. GIẢI THÍCH TOÀN BỘ THÔNG SỐ CẦN NHẬP (RULE INPUTS)
+
+Khi bạn vào tab **"Rule Builder"** và bấm **"Tạo Quy Tắc Tự Động Mới"**, dưới đây là giải nghĩa từng ô thông số:
+
+### A. Nhóm Nhận Diện & Phạm Vi Áp Dụng
+| Tên Thông Số | Giá Trị Lựa Chọn | Ý Nghĩa Thực Tế Cho Người Chạy Ads |
+| :--- | :--- | :--- |
+| **Tên Quy Tắc** | Nhập chữ tự do | Đặt tên để dễ quản lý. *VD: "Cắt lỗ adset 100k 0 tin nhắn", "Tắt adset giá mét > 80k".* |
+| **Phạm Vi Áp Dụng** | • `Chiến Dịch (CAMPAIGN)`<br>• `Nhóm Quảng Cáo (ADSET)`<br>• `Quảng Cáo (AD)` | Tầng mà tool sẽ can thiệp.<br>👉 **Khuyên dùng:** Chọn **`Nhóm Quảng Cáo (ADSET)`** vì tối ưu tắt/bật ở tầng nhóm là chuẩn nhất đối với camp Tin nhắn. |
+| **Đối Tượng Áp Dụng** | • `Tất cả đối tượng đang chạy (ALL_ACTIVE)`<br>• `Chỉ định cụ thể (SELECTED)` | Chọn `Tất cả đối tượng đang chạy` để tool tự động canh mọi nhóm đang active, không cần vào chỉnh lại khi lên camp mới. |
+
+### B. Nhóm Chỉ Số Giám Sát & Ngưỡng
+| Tên Thông Số | Giá Trị Lựa Chọn | Ý Nghĩa Thực Tế Cho Người Chạy Ads |
+| :--- | :--- | :--- |
+| **Chỉ Số Giám Sát** | • `COST_PER_MESSAGING`<br>• `SPEND_WITHOUT_MESSAGES`<br>• `CPM`, `CPC`, `CTR` | **1. `SPEND_WITHOUT_MESSAGES`**: Canh số tiền đã cắn mà **chưa có tin nhắn nào**.<br>**2. `COST_PER_MESSAGING` (CPA)**: Giá trung bình cho mỗi tin nhắn.<br>**3. `CPM` / `CPC` / `CTR`**: Đánh giá độ đắt rẻ của tệp và mức độ hấp dẫn của bài viết. |
+| **Toán Tử** | `>`, `>=`, `<`, `<=` | So sánh thực tế với ngưỡng. Thường dùng: **Lớn hơn (`>`)** hoặc **Lớn hơn hoặc bằng (`>=`)**. |
+| **Ngưỡng (VNĐ)** | Nhập số tiền | Mức trần bạn chấp nhận. *VD: Nhập `80000` (80.000đ) hoặc `100000` (100.000đ).* |
+
+### C. Nhóm Bộ Lọc An Toàn (Chống Tắt Oan Camp Mới)
+> [!IMPORTANT]
+> Đây là các thông số cốt lõi giúp bạn không bị tắt nhầm những nhóm quảng cáo mới chạy đang trong giai đoạn máy học hoặc bị delay số liệu.
+
+* **Số Tin Nhắn Tối Thiểu Trước Khi Đánh Giá (`minResults`)**:
+  * *Vì sao cần?* Nếu nhóm mới tiêu 30.000đ và ra 1 tin nhắn, sau đó cắn thêm click vọt lên 90.000đ. Nếu tính trung bình ngay lúc này là 90k/tin và tắt ngay thì rất oan.
+  * *Lời khuyên:* Đặt từ **`2` đến `3` tin nhắn**. Nhóm quảng cáo phải có đủ 2-3 tin nhắn thì tool mới bắt đầu tính trung bình giá CPA để xét duyệt.
+* **Ngưỡng Chi Tiêu Tối Thiểu Cho 0 Tin Nhắn (`minSpend`)**:
+  * Dành cho quy tắc 0 tin nhắn. Camp mới cắn 20k-30k chưa ra tin là bình thường. Cần đặt ngưỡng (VD: `100.000đ`), khi nào tiêu chạm 100k mà vẫn 0 tin thì mới kích hoạt điều kiện vi phạm.
+* **Số Lần Vi Phạm Liên Tiếp (`consecutiveViolationsRequired`)**:
+  * Meta thỉnh thoảng bị trễ cập nhật số liệu (tin nhắn về rồi nhưng 10-15 phút sau Facebook mới đồng bộ lên hệ thống).
+  * Đặt là **`2` lần**: Tool quét lần 1 thấy vi phạm -> chỉ ghi nhận nghi vấn; đợi đến chu kỳ quét lần 2 (sau 5-10 phút) nếu vẫn vi phạm thì mới chính thức gửi lệnh tắt.
+* **Khoảng Thời Gian Báo Cáo (`reportingWindow`)**:
+  * Mặc định chọn **`Hôm nay (TODAY)`** để bám sát ngân sách trong ngày.
+* **Chu Kỳ Kiểm Tra (`checkIntervalMinutes`)**:
+  * Khoảng cách giữa các lần tool tự động kiểm tra: **2 phút, 3 phút, 5 phút, 10 phút, 15 phút, 30 phút, 1 giờ, 6 giờ**.
+  * *(Khuyến nghị: Đặt từ **5 phút đến 15 phút** để vừa bám sát thời gian thực, vừa tránh bị Facebook giới hạn lượt gọi API).*
+
+### D. Hành Động & Cơ Chế Chạy Thử
+* **Hành Động Khi Vi Phạm**:
+  * **`Tạm Dừng Đối Tượng (PAUSE)`**: Tự động tắt trên Facebook Ads.
+  * **`Chỉ Gửi Cảnh Báo (NOTIFY_ONLY)`**: Không tắt, chỉ bắn chuông thông báo trên web.
+* **Chế Độ Hoạt Động (Dry Run vs Live Mode)**:
+  * **`Dry Run (Mặc định)`**: Chế độ **chạy thử / mô phỏng**. Tool chạy ngầm và ghi log *"Nếu chạy thật thì đối tượng này đã bị tắt"*, nhưng **tuyệt đối không can thiệp thật vào Facebook**.
+  * **`Live Mode`**: Khi bạn bấm nút chuyển sang Live Mode, tool sẽ gửi lệnh tắt thật lên Facebook.
+
+---
+
+## 6. 3 KỊCH BẢN THỰC CHIẾN CANH MỐC KHUYÊN DÙNG
+
+### Kịch Bản 1: Cắt lỗ Adset đốt tiền mà KHÔNG có tin nhắn (Chặn đốt tiền vô ích)
+* **Tên quy tắc**: `Cắt lỗ: Cắn 100k chưa có tin nhắn`
+* **Phạm vi**: `Nhóm Quảng Cáo (ADSET)`
+* **Đối tượng**: `Tất cả đối tượng đang chạy (ALL_ACTIVE)`
+* **Chỉ số giám sát**: `Chi tiêu khi 0 tin nhắn (SPEND_WITHOUT_MESSAGES)`
+* **Toán tử**: `Lớn hơn hoặc bằng (>=)`
+* **Ngưỡng**: `100000` VNĐ *(hoặc bằng 1.5 lần giá tin nhắn mục tiêu)*
+* **Khoảng thời gian**: `Hôm nay (TODAY)`
+* **Chu kỳ kiểm tra**: `Mỗi 5 phút` hoặc `Mỗi 10 phút`
+* **Số lần vi phạm liên tiếp**: `1` hoặc `2`
+* **Hành động**: `Tạm Dừng Đối Tượng (PAUSE)`
+
+---
+
+### Kịch Bản 2: Tắt Adset có tin nhắn nhưng giá quá đắt (CPA vượt trần)
+* **Tên quy tắc**: `Tắt Adset giá tin nhắn > 80k`
+* **Phạm vi**: `Nhóm Quảng Cáo (ADSET)`
+* **Đối tượng**: `Tất cả đối tượng đang chạy (ALL_ACTIVE)`
+* **Chỉ số giám sát**: `Chi phí / Tin Nhắn (COST_PER_MESSAGING)`
+* **Toán tử**: `Lớn hơn (>)`
+* **Ngưỡng**: `80000` VNĐ
+* **Số tin nhắn tối thiểu**: `3` *(Bắt buộc phải có từ 3 tin nhắn trở lên mới tính)*
+* **Số lần vi phạm liên tiếp**: `2` *(Phải đắt liên tiếp trong 2 lần quét để tránh Facebook delay)*
+* **Chu kỳ kiểm tra**: `Mỗi 10 phút` hoặc `Mỗi 15 phút`
+* **Hành động**: `Tạm Dừng Đối Tượng (PAUSE)`
+
+---
+
+### Kịch Bản 3: Cảnh báo CPM đắt / Tệp cạnh tranh cao (Chỉ cảnh báo, không tắt)
+* **Tên quy tắc**: `Cảnh báo CPM cao > 150k`
+* **Phạm vi**: `Nhóm Quảng Cáo (ADSET)`
+* **Chỉ số giám sát**: `CPM (Chi phí 1000 lượt hiển thị)`
+* **Toán tử**: `>`
+* **Ngưỡng**: `150000` VNĐ
+* **Hành động**: `Chỉ Gửi Cảnh Báo (NOTIFY_ONLY)`
+
+---
+
+## 7. CƠ CHẾ TỰ ĐỘNG NGẦM (SCHEDULER) & AN TOÀN
+
+### 🤖 Cơ Chế Tự Động Ngầm (CareScheduler)
+* Backend chạy ngầm một tác vụ cron **mỗi 1 phút 1 lần** (`*/1 * * * *`).
+* Cron tự động so sánh thời gian từ lần quét cuối cùng với `checkIntervalMinutes` của từng quy tắc.
+* Khi đến lượt, hệ thống âm thầm fetch số liệu từ Meta API, đánh giá và thực thi mà bạn không cần phải mở giao diện hay bấm nút gì.
+
+### 🛡️ 7 Tầng Bảo Vệ An Toàn Tuyệt Đối
+1. **Mặc định Dry Run**: Mọi quy tắc mới tạo luôn ở trạng thái an toàn, không thể vô tình tắt camp thật khi chưa kiểm thử.
+2. **Nút Dừng Khẩn Cấp (Emergency Stop)**: Nút công tắc đỏ ở góc trên bên phải màn hình. Khi bấm, toàn bộ các hành vi can thiệp tắt camp bị đóng băng ngay lập tức.
+3. **Chống Gửi Lệnh Trùng Lặp (Idempotency)**: Trước khi gửi lệnh tắt, tool kiểm tra trạng thái trên Meta. Nếu nhóm đã bị tắt từ trước thì bỏ qua để tiết kiệm API.
+4. **Xác Thực Sau Khi Tắt (Post-Action Verification)**: Sau khi gửi lệnh tắt, tool truy vấn ngược lại Meta để đảm bảo trạng thái đã chuyển sang `PAUSED`.
+5. **Tuyệt Đối Không Tự Bật Lại**: Tool chỉ có tính năng tạm dừng để bảo toàn vốn; không bao giờ tự tiện bật lại các chiến dịch đã tắt.
+6. **Đánh Dấu Phân Biệt**: Các nhóm do tool tắt sẽ được gắn cờ `isPausedBySystem: true`, giúp bạn phân biệt rõ ràng giữa nhóm do tool tắt và nhóm do bạn tự tắt tay trên Facebook Ads Manager.
+7. **Mã Hóa AES-256**: Token được mã hóa ở tầng database và chỉ giải mã tạm thời trong RAM backend khi thực thi.
+
+---
+
+## 8. XỬ LÝ SỰ CỐ THƯỜNG GẶP (TROUBLESHOOTING)
+
+### ❓ Lỗi 1: Token không hợp lệ hoặc thiếu quyền
+* **Triệu chứng**: Khi bấm kết nối báo *"Token thiếu quyền ads_read"* hoặc *"Invalid token"*.
+* **Cách khắc phục**: Quay lại [Graph API Explorer](https://developers.facebook.com/tools/explorer/), kiểm tra xem đã tích đủ 3 quyền (`ads_read`, `ads_management`, `read_insights`) chưa và bấm **Generate Access Token** lại.
+
+### ❓ Lỗi 2: Lỗi chạm giới hạn API (User request limit reached)
+* **Triệu chứng**: Thông báo lỗi từ Facebook về Rate Limit.
+* **Nguyên nhân**: Bạn đang cài đặt chu kỳ quét quá nhanh (ví dụ 2 phút) cho một tài khoản có hàng trăm nhóm quảng cáo.
+* **Cách khắc phục**: Tăng chu kỳ kiểm tra trong Rule Builder lên **10 phút** hoặc **15 phút**.
+
+### ❓ Lỗi 3: Tool đã báo phát hiện vi phạm nhưng trên Facebook Ads camp vẫn chưa tắt
+* **Nguyên nhân**: Quy tắc của bạn vẫn đang để cờ **Dry Run**.
+* **Cách khắc phục**: Trên danh sách quy tắc trong tab Rule Builder, tìm quy tắc đó và bấm nút **"Bật Live Mode"** (nút sẽ chuyển sang màu đỏ báo hiệu Live Mode).
+
+---
+
+## 9. KIẾN TRÚC KỸ THUẬT & LỆNH DÀNH CHO DEVELOPER
+
+### Cấu Trúc Thư Mục
+```
+tool_optimize_ads/
+├── backend/
+│   ├── prisma/             # Schema cơ sở dữ liệu SQLite / PostgreSQL
+│   ├── src/
+│   │   ├── config/         # Cấu hình biến môi trường
+│   │   ├── controllers/    # API Controllers (Account, Campaign, Rule, Audit)
+│   │   ├── services/
+│   │   │   ├── meta-api/   # Meta Graph API Gateway & Metric Resolver
+│   │   │   ├── rule-engine/# Engine so sánh điều kiện & Action Executor
+│   │   │   └── scheduler/  # Background Care Scheduler (node-cron)
+│   │   └── utils/          # Bộ mã hóa AES-256-GCM
+│   └── tests/              # 13 Vitest Unit & Integration Tests
+└── frontend/
+    └── src/
+        ├── components/     # UI Dashboard, Rule Builder, Simulator, Accounts
+        └── services/       # Client API Service
+```
+
+### Các Lệnh Tiện Ích
+```bash
+# Kiểm tra bộ test an toàn (13/13 tests pass)
+npm run test
+
+# Khởi chạy riêng Backend
+npm run dev:backend
+
+# Khởi chạy riêng Frontend
+npm run dev:frontend
+
+# Mở Prisma Studio để xem dữ liệu Database trực quan
+cd backend && npx prisma studio
+```
+
+---
+
+**Chúc bạn vận hành chiến dịch hiệu quả, tối ưu chi phí và bảo toàn ngân sách quảng cáo tối đa!** 🚀

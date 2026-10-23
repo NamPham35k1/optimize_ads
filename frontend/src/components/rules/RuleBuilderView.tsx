@@ -540,7 +540,11 @@ export const RuleBuilderView: React.FC<Props> = ({
                     onChange={(e) => setCheckIntervalMinutes(Number(e.target.value))}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none"
                   >
-                    <option value={15}>Mỗi 15 phút</option>
+                    <option value={2}>Mỗi 2 phút</option>
+                    <option value={3}>Mỗi 3 phút</option>
+                    <option value={5}>Mỗi 5 phút</option>
+                    <option value={10}>Mỗi 10 phút</option>
+                    <option value={15}>Mỗi 15 phút (Khuyên dùng)</option>
                     <option value={30}>Mỗi 30 phút</option>
                     <option value={60}>Mỗi 1 giờ</option>
                     <option value={360}>Mỗi 6 giờ</option>
