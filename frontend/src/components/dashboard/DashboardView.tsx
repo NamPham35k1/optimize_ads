@@ -32,8 +32,22 @@ interface Props {
 export const DashboardView: React.FC<Props> = ({ summary, onNavigateTab, currency = 'VND' }) => {
   if (!summary) {
     return (
-      <div className="flex items-center justify-center h-64 text-slate-500">
-        Đang tải dữ liệu dashboard...
+      <div className="flex flex-col items-center justify-center h-96 text-slate-400 space-y-4">
+        <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-3xl shadow-xl">
+          📊
+        </div>
+        <div className="text-center space-y-1">
+          <p className="text-base font-semibold text-white">Chưa có dữ liệu chiến dịch</p>
+          <p className="text-xs text-slate-500 max-w-sm">
+            Vui lòng vào tab "Tài Khoản Ads" để kết nối tài khoản Facebook Ads hoặc tạo dữ liệu demo để trải nghiệm.
+          </p>
+        </div>
+        <button
+          onClick={() => onNavigateTab('accounts')}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-blue-600/20 cursor-pointer"
+        >
+          Đến Quản Lý Tài Khoản
+        </button>
       </div>
     );
   }

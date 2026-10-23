@@ -48,12 +48,15 @@ export const Header: React.FC<Props> = ({
             <select
               value={selectedAccount?.id || ''}
               onChange={(e) => {
-                const found = accounts.find((a) => a.id === e.target.value);
+                const found = (accounts || []).find((a) => a.id === e.target.value);
                 if (found) onSelectAccount(found);
               }}
               className="appearance-none bg-slate-800 border border-slate-700 hover:border-slate-600 text-slate-100 text-sm font-semibold rounded-lg pl-3 pr-8 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
             >
-              {accounts.map((acc) => (
+              {(accounts || []).length === 0 && (
+                <option value="">Chưa kết nối tài khoản</option>
+              )}
+              {(accounts || []).map((acc) => (
                 <option key={acc.id} value={acc.id}>
                   {acc.name} ({acc.currency}) {acc.isMock ? '— [MOCK]' : ''}
                 </option>

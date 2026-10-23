@@ -18,6 +18,19 @@ const api = axios.create({
   timeout: 20000,
 });
 
+// Interceptor to catch HTML responses (when backend is down or 404 rewrite to index.html)
+api.interceptors.response.use(
+  (response) => {
+    if (typeof response.data === 'string' && response.data.includes('<!doctype html>')) {
+      return Promise.reject(new Error('Backend API không khả dụng (nhận về HTML).'));
+    }
+    return response;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 export const ApiService = {
   // Accounts
   async getAccounts(): Promise<AdAccount[]> {

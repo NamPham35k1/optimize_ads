@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { AlertTriangle, WifiOff } from 'lucide-react';
 import { Sidebar, NavTab } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { EmergencyStopBanner } from './components/layout/EmergencyStopBanner';
@@ -34,42 +35,52 @@ export const App: React.FC = () => {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const [backendError, setBackendError] = useState<string | null>(null);
+
   // Load all initial data
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const [accList, status, notifs] = await Promise.all([
-        ApiService.getAccounts(),
-        ApiService.getSystemStatus(),
-        ApiService.getNotifications(),
+        ApiService.getAccounts().catch(() => []),
+        ApiService.getSystemStatus().catch(() => null),
+        ApiService.getNotifications().catch(() => ({ notifications: [], unreadCount: 0 })),
       ]);
 
-      setAccounts(accList);
+      const safeAccounts = Array.isArray(accList) ? accList : [];
+      setAccounts(safeAccounts);
       setSystemStatus(status);
-      setNotifications(notifs.notifications);
-      setUnreadCount(notifs.unreadCount);
+      setNotifications(notifs?.notifications || []);
+      setUnreadCount(notifs?.unreadCount || 0);
+
+      if (!status && safeAccounts.length === 0) {
+        setBackendError('Chưa kết nối máy chủ Backend. Giao diện đang chạy độc lập.');
+      } else {
+        setBackendError(null);
+      }
 
       // Default to first account or keep selected
       let currentAcc = selectedAccount;
-      if (!currentAcc && accList.length > 0) {
-        currentAcc = accList[0];
+      if (!currentAcc && safeAccounts.length > 0) {
+        currentAcc = safeAccounts[0];
         setSelectedAccount(currentAcc);
       }
 
       if (currentAcc) {
         const [hier, rls, acts, sum] = await Promise.all([
-          ApiService.getHierarchy(currentAcc.id),
-          ApiService.getRules(currentAcc.id),
-          ApiService.getAutomationActions({ adAccountId: currentAcc.id }),
-          ApiService.getDashboardSummary(currentAcc.id),
+          ApiService.getHierarchy(currentAcc.id).catch(() => []),
+          ApiService.getRules(currentAcc.id).catch(() => []),
+          ApiService.getAutomationActions({ adAccountId: currentAcc.id }).catch(() => []),
+          ApiService.getDashboardSummary(currentAcc.id).catch(() => null),
         ]);
-        setCampaigns(hier);
-        setRules(rls);
-        setActions(acts);
+        setCampaigns(Array.isArray(hier) ? hier : []);
+        setRules(Array.isArray(rls) ? rls : []);
+        setActions(Array.isArray(acts) ? acts : []);
         setSummary(sum);
       }
     } catch (err: any) {
       console.error('Error loading data:', err);
+      setBackendError('Không thể kết nối Backend API.');
     } finally {
       setLoading(false);
     }
@@ -154,6 +165,18 @@ export const App: React.FC = () => {
         onDisable={() => handleToggleEmergencyStop(false)}
         loading={loading}
       />
+
+      {/* Backend Disconnected Notice Banner */}
+      {backendError && (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 text-xs text-amber-300 flex items-center justify-between z-30 shrink-0">
+          <div className="flex items-center space-x-2">
+            <WifiOff className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>
+              <strong>Chưa kết nối Backend:</strong> Giao diện đang chạy độc lập trên Vercel. Bạn có thể xem giao diện và tab "Tài Khoản Ads", hoặc trỏ biến <code>VITE_API_URL</code> tới máy chủ backend.
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Main Layout Shell */}
       <div className="flex flex-1 overflow-hidden">
