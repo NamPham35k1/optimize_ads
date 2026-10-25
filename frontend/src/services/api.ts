@@ -12,8 +12,9 @@ import {
   PancakeFinancialStats,
 } from '../types';
 
-const apiBase = import.meta.env.VITE_API_URL
-  ? `${(import.meta.env.VITE_API_URL as string).replace(/\/+$/, '')}/api`
+const rawUrl = (import.meta.env.VITE_API_URL as string || '').trim().replace(/\/+$/, '');
+const apiBase = rawUrl
+  ? (rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`)
   : '/api';
 
 const api = axios.create({
