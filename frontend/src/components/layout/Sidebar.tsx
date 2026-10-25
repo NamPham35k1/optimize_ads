@@ -8,15 +8,31 @@ import {
   ShieldCheck,
   Facebook,
   Activity,
+  ShoppingBag,
+  Users,
+  LogIn,
+  LogOut,
 } from 'lucide-react';
+import { User } from '../../types';
 
-export type NavTab = 'dashboard' | 'accounts' | 'campaigns' | 'rules' | 'simulator' | 'logs';
+export type NavTab =
+  | 'dashboard'
+  | 'accounts'
+  | 'campaigns'
+  | 'rules'
+  | 'simulator'
+  | 'logs'
+  | 'pancake'
+  | 'users';
 
 interface Props {
   activeTab: NavTab;
   onSelectTab: (tab: NavTab) => void;
   rulesCount: number;
   isMockMode: boolean;
+  currentUser?: User | null;
+  onOpenLogin?: () => void;
+  onLogout?: () => void;
 }
 
 export const Sidebar: React.FC<Props> = ({
@@ -24,7 +40,12 @@ export const Sidebar: React.FC<Props> = ({
   onSelectTab,
   rulesCount,
   isMockMode,
+  currentUser,
+  onOpenLogin,
+  onLogout,
 }) => {
+  const isAdmin = currentUser?.role === 'ADMIN';
+
   const navItems: Array<{ id: NavTab; label: string; icon: React.ReactNode; badge?: string | number }> = [
     {
       id: 'dashboard',
@@ -40,6 +61,12 @@ export const Sidebar: React.FC<Props> = ({
       id: 'campaigns',
       label: 'Chiến Dịch & Nhóm Ads',
       icon: <Layers className="w-5 h-5" />,
+    },
+    {
+      id: 'pancake',
+      label: 'POS Pancake & Lãi/Lỗ',
+      icon: <ShoppingBag className="w-5 h-5 text-indigo-400" />,
+      badge: 'Mới',
     },
     {
       id: 'rules',
@@ -58,6 +85,16 @@ export const Sidebar: React.FC<Props> = ({
       label: 'Nhật Ký Tự Động (Logs)',
       icon: <FileText className="w-5 h-5" />,
     },
+    ...(isAdmin
+      ? [
+          {
+            id: 'users' as NavTab,
+            label: 'Tài Khoản Con (Nhân Viên)',
+            icon: <Users className="w-5 h-5 text-blue-400" />,
+            badge: 'Admin',
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -133,6 +170,42 @@ export const Sidebar: React.FC<Props> = ({
           );
         })}
       </nav>
+
+      {/* User Account / Profile Card */}
+      <div className="p-3 border-t border-slate-800/80 bg-slate-950/40">
+        {currentUser ? (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2.5 overflow-hidden">
+              <div className="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 font-bold text-xs shrink-0">
+                {currentUser.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="truncate">
+                <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
+                <p className="text-[10px] text-slate-400 truncate">
+                  {currentUser.role === 'ADMIN' ? '👑 Quản Trị Viên' : '👤 Tài Khoản Con'}
+                </p>
+              </div>
+            </div>
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-rose-400 rounded-lg transition-colors cursor-pointer"
+                title="Đăng xuất"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        ) : (
+          <button
+            onClick={onOpenLogin}
+            className="w-full py-2 px-3 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 rounded-xl text-xs font-semibold text-blue-400 flex items-center justify-center space-x-1.5 cursor-pointer"
+          >
+            <LogIn className="w-3.5 h-3.5" />
+            <span>Đăng Nhập Tài Khoản</span>
+          </button>
+        )}
+      </div>
 
       {/* Bottom Status Card */}
       <div className="p-4 border-t border-slate-800/80">

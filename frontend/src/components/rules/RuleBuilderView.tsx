@@ -13,13 +13,14 @@ import {
   Eye,
   RefreshCw,
 } from 'lucide-react';
-import { CareRule, AdAccount } from '../../types';
+import { CareRule, AdAccount, CampaignSnapshot } from '../../types';
 import { ApiService } from '../../services/api';
 
 interface Props {
   rules: CareRule[];
   accounts: AdAccount[];
   selectedAccount: AdAccount | null;
+  campaigns?: CampaignSnapshot[];
   onRefresh: () => void;
   onOpenSimulatorWithRule?: (rule: Partial<CareRule>) => void;
 }
@@ -28,6 +29,7 @@ export const RuleBuilderView: React.FC<Props> = ({
   rules,
   accounts,
   selectedAccount,
+  campaigns = [],
   onRefresh,
   onOpenSimulatorWithRule,
 }) => {
@@ -39,6 +41,8 @@ export const RuleBuilderView: React.FC<Props> = ({
   const [adAccountId, setAdAccountId] = useState(selectedAccount?.id || '');
   const [scope, setScope] = useState<'CAMPAIGN' | 'ADSET' | 'AD'>('ADSET');
   const [targetMode, setTargetMode] = useState<'ALL_ACTIVE' | 'SELECTED'>('ALL_ACTIVE');
+  const [selectedEntityIds, setSelectedEntityIds] = useState<string[]>([]);
+  const [campaignSearch, setCampaignSearch] = useState('');
   const [metricType, setMetricType] = useState('COST_PER_MESSAGING');
   const [operator, setOperator] = useState('GREATER_THAN');
   const [thresholdValue, setThresholdValue] = useState(100000);
@@ -61,6 +65,8 @@ export const RuleBuilderView: React.FC<Props> = ({
     setName('Tự động dừng quảng cáo tin nhắn chi phí cao');
     setScope('ADSET');
     setTargetMode('ALL_ACTIVE');
+    setSelectedEntityIds([]);
+    setCampaignSearch('');
     setMetricType('COST_PER_MESSAGING');
     setOperator('GREATER_THAN');
     setThresholdValue(100000);
@@ -81,6 +87,13 @@ export const RuleBuilderView: React.FC<Props> = ({
     setAdAccountId(rule.adAccountId);
     setScope(rule.scope);
     setTargetMode(rule.targetMode);
+    try {
+      const parsed = JSON.parse(rule.targetEntityIds || '[]');
+      setSelectedEntityIds(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      setSelectedEntityIds([]);
+    }
+    setCampaignSearch('');
     setMetricType(rule.metricType);
     setOperator(rule.operator);
     setThresholdValue(rule.thresholdValue);
@@ -105,7 +118,7 @@ export const RuleBuilderView: React.FC<Props> = ({
         adAccountId: adAccountId || selectedAccount?.id,
         scope,
         targetMode,
-        targetEntityIds: '[]',
+        targetEntityIds: JSON.stringify(selectedEntityIds),
         metricType,
         operator: operator as any,
         thresholdValue: Number(thresholdValue),
@@ -244,6 +257,22 @@ export const RuleBuilderView: React.FC<Props> = ({
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
                         {rule.scope}
                       </span>
+                      {rule.targetMode === 'SELECTED' ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/30">
+                          🎯 Áp dụng riêng ({(() => {
+                            try {
+                              const ids = JSON.parse(rule.targetEntityIds || '[]');
+                              return `${ids.length} camp`;
+                            } catch {
+                              return 'Chỉ định riêng';
+                            }
+                          })()})
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-500/10 text-blue-300 border border-blue-500/30">
+                          🌐 Chung cho mọi camp đang chạy
+                        </span>
+                      )}
                       {rule.isDryRun ? (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 text-amber-300 border border-amber-500/30 flex items-center gap-1">
                           <Shield className="w-3 h-3 text-amber-400" />
@@ -423,10 +452,108 @@ export const RuleBuilderView: React.FC<Props> = ({
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none"
                   >
                     <option value="ALL_ACTIVE">Tất cả đối tượng đang chạy (Active)</option>
-                    <option value="SELECTED">Chỉ định cụ thể</option>
+                    <option value="SELECTED">Chỉ định chiến dịch cụ thể</option>
                   </select>
                 </div>
               </div>
+
+              {/* Campaign Picker when targetMode is SELECTED */}
+              {targetMode === 'SELECTED' && (
+                <div className="bg-slate-950/80 border border-indigo-500/30 rounded-xl p-3.5 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-semibold text-indigo-300 text-xs block">
+                        Chọn các Chiến Dịch (Campaign) áp dụng riêng quy tắc này:
+                      </span>
+                      <span className="text-[11px] text-slate-400">
+                        Đã chọn <strong>{selectedEntityIds.length}</strong> / {(campaigns || []).length} chiến dịch
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2 text-[11px]">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedEntityIds((campaigns || []).map((c) => c.fbCampaignId))}
+                        className="text-indigo-400 hover:underline"
+                      >
+                        Chọn tất cả
+                      </button>
+                      <span className="text-slate-600">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedEntityIds([])}
+                        className="text-slate-400 hover:underline"
+                      >
+                        Bỏ chọn
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Search filter */}
+                  <input
+                    type="text"
+                    value={campaignSearch}
+                    onChange={(e) => setCampaignSearch(e.target.value)}
+                    placeholder="Tìm tên hoặc ID chiến dịch..."
+                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500"
+                  />
+
+                  {/* Campaign checkbox list */}
+                  <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
+                    {(campaigns || [])
+                      .filter(
+                        (c) =>
+                          c.name.toLowerCase().includes(campaignSearch.toLowerCase()) ||
+                          c.fbCampaignId.includes(campaignSearch)
+                      )
+                      .map((c) => {
+                        const isChecked = selectedEntityIds.includes(c.fbCampaignId);
+                        return (
+                          <label
+                            key={c.id || c.fbCampaignId}
+                            className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition-colors ${
+                              isChecked
+                                ? 'bg-indigo-950/40 border-indigo-500/50 text-white'
+                                : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:border-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center space-x-2.5 overflow-hidden">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {
+                                  if (isChecked) {
+                                    setSelectedEntityIds(selectedEntityIds.filter((id) => id !== c.fbCampaignId));
+                                  } else {
+                                    setSelectedEntityIds([...selectedEntityIds, c.fbCampaignId]);
+                                  }
+                                }}
+                                className="rounded text-indigo-600 focus:ring-indigo-500"
+                              />
+                              <div className="truncate">
+                                <span className="font-semibold block truncate">{c.name}</span>
+                                <span className="text-[10px] text-slate-500 font-mono">ID: {c.fbCampaignId}</span>
+                              </div>
+                            </div>
+                            <span
+                              className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ml-2 ${
+                                c.status === 'ACTIVE'
+                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                  : 'bg-slate-800 text-slate-400'
+                              }`}
+                            >
+                              {c.status === 'ACTIVE' ? 'Đang chạy' : 'Tạm dừng'}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    {(campaigns || []).length === 0 && (
+                      <p className="text-center py-3 text-slate-500 text-xs">
+                        Chưa có dữ liệu chiến dịch để chọn. Vui lòng kết nối tài khoản hoặc tạo demo.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Metric & Operator & Threshold */}
               <div className="grid grid-cols-3 gap-3">
@@ -439,6 +566,7 @@ export const RuleBuilderView: React.FC<Props> = ({
                   >
                     <option value="COST_PER_MESSAGING">Chi phí / Tin Nhắn (CPA)</option>
                     <option value="SPEND_WITHOUT_MESSAGES">Chi tiêu khi 0 tin nhắn</option>
+                    <option value="ADS_COST_REVENUE_PERCENT">Chi phí Ads / Doanh thu Pancake (%)</option>
                     <option value="CPM">CPM (Chi phí 1000 lượt hiển thị)</option>
                     <option value="CPC">CPC (Chi phí / lượt click)</option>
                     <option value="CTR">CTR (Tỷ lệ click)</option>

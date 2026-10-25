@@ -294,7 +294,12 @@ export class RuleEvaluator {
           adAccountId: rule.adAccountId,
           status: 'ACTIVE',
           ...(rule.targetMode === 'SELECTED' && selectedIds.length > 0
-            ? { fbAdSetId: { in: selectedIds } }
+            ? {
+                OR: [
+                  { fbCampaignId: { in: selectedIds } },
+                  { fbAdSetId: { in: selectedIds } },
+                ],
+              }
             : {}),
         },
       });
@@ -305,7 +310,12 @@ export class RuleEvaluator {
           adAccountId: rule.adAccountId,
           status: 'ACTIVE',
           ...(rule.targetMode === 'SELECTED' && selectedIds.length > 0
-            ? { fbAdId: { in: selectedIds } }
+            ? {
+                OR: [
+                  { fbCampaignId: { in: selectedIds } },
+                  { fbAdId: { in: selectedIds } },
+                ],
+              }
             : {}),
         },
       });

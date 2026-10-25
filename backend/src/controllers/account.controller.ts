@@ -2,12 +2,35 @@ import { Request, Response } from 'express';
 import prisma from '../db.js';
 import { MetaService } from '../services/meta-api/meta-service.js';
 import { AccountSyncService } from '../services/meta-api/account-sync.service.js';
+import { AuthService } from '../services/auth/auth.service.js';
 import { encryptToken, maskToken } from '../utils/encryption.js';
 
 export class AccountController {
   public static async listAccounts(req: Request, res: Response): Promise<void> {
     try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+      let userRole = 'ADMIN';
+      let userId: string | null = null;
+
+      if (token) {
+        const payload = AuthService.verifyToken(token);
+        if (payload) {
+          userRole = payload.role;
+          userId = payload.userId;
+        }
+      }
+
+      const whereClause: any = {};
+      // If user is a sub-account, only return accounts assigned to them
+      if (userRole === 'SUB_ACCOUNT' && userId) {
+        whereClause.userAssignments = {
+          some: { userId },
+        };
+      }
+
       const accounts = await prisma.adAccount.findMany({
+        where: whereClause,
         include: {
           connectedAccount: {
             select: {

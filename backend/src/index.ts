@@ -2,6 +2,7 @@ import app from './app.js';
 import { config } from './config/index.js';
 import { CareScheduler } from './services/scheduler/care-scheduler.js';
 import { AccountSyncService } from './services/meta-api/account-sync.service.js';
+import { PasswordUtil } from './utils/password.js';
 import prisma from './db.js';
 
 const PORT = config.port;
@@ -16,9 +17,16 @@ async function bootstrap() {
           email: config.defaultUserEmail,
           name: 'Auto Ads Admin',
           role: 'ADMIN',
+          passwordHash: PasswordUtil.hashPassword('admin123'),
         },
       });
-      console.log(`[Bootstrap] Created default admin user: ${adminUser.email}`);
+      console.log(`[Bootstrap] Created default admin user: ${adminUser.email} (Password: admin123)`);
+    } else if (!adminUser.passwordHash) {
+      await prisma.user.update({
+        where: { id: adminUser.id },
+        data: { passwordHash: PasswordUtil.hashPassword('admin123') },
+      });
+      console.log(`[Bootstrap] Updated admin password: admin123`);
     }
 
     // 2. Ensure initial Emergency Stop setting exists

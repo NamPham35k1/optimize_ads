@@ -8,15 +8,18 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  role      String   @default("ADMIN")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String   @id @default(cuid())
+  email             String   @unique
+  name              String
+  passwordHash      String   @default("")
+  role              String   @default("ADMIN") // "ADMIN", "SUB_ACCOUNT"
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  connectedAccounts ConnectedAccount[]
-  auditLogs         AuditLog[]
+  connectedAccounts  ConnectedAccount[]
+  accountAssignments UserAccountAssignment[]
+  auditLogs          AuditLog[]
 }
 
 model ConnectedAccount {
@@ -63,6 +66,8 @@ model AdAccount {
   ruleEvaluations    RuleEvaluation[]
   automationActions  AutomationAction[]
   notifications      Notification[]
+  userAssignments    UserAccountAssignment[]
+  pancakeShops       PancakeShop[]
 }
 
 model CampaignSnapshot {
@@ -267,4 +272,58 @@ model SystemSetting {
   value       String
   description String?
   updatedAt   DateTime @default(now())
+}
+
+model UserAccountAssignment {
+  id          String    @id @default(cuid())
+  userId      String
+  adAccountId String
+  createdAt   DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adAccount AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, adAccountId])
+  @@index([userId])
+  @@index([adAccountId])
+}
+
+model PancakeShop {
+  id                 String   @id @default(cuid())
+  adAccountId        String?
+  name               String
+  shopId             String
+  apiToken           String
+  pageId             String?
+  isActive           Boolean  @default(true)
+  targetCostPercent  Float    @default(35.0) // <= 35% An toan
+  warningCostPercent Float    @default(40.0) // 35% - 40% Canh bao
+  dangerCostPercent  Float    @default(50.0) // > 50% Nguy hiem
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  orders             PancakeOrder[]
+  adAccount          AdAccount? @relation(fields: [adAccountId], references: [id], onDelete: SetNull)
+
+  @@index([adAccountId])
+}
+
+model PancakeOrder {
+  id             String   @id @default(cuid())
+  shopId         String
+  pancakeOrderId String   @unique
+  customerName   String?
+  customerPhone  String?
+  totalAmount    Float    @default(0)
+  status         String   @default("delivered") // "pending", "confirmed", "delivering", "delivered", "canceled"
+  fbCampaignId   String?
+  fbAdSetId      String?
+  orderCreatedAt DateTime @default(now())
+  syncedAt       DateTime @default(now())
+
+  shop           PancakeShop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId])
+  @@index([fbCampaignId])
+  @@index([orderCreatedAt])
 }

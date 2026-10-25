@@ -9,6 +9,9 @@ import { CampaignsView } from './components/campaigns/CampaignsView';
 import { RuleBuilderView } from './components/rules/RuleBuilderView';
 import { SimulatorView } from './components/simulator/SimulatorView';
 import { LogsView } from './components/logs/LogsView';
+import { PancakeView } from './components/pancake/PancakeView';
+import { UsersView } from './components/users/UsersView';
+import { LoginModal } from './components/auth/LoginModal';
 import { NotificationsModal } from './components/notifications/NotificationsModal';
 import { ApiService } from './services/api';
 import {
@@ -19,6 +22,8 @@ import {
   NotificationItem,
   DashboardSummary,
   SystemStatus,
+  User,
+  PancakeFinancialStats,
 } from './types';
 
 export const App: React.FC = () => {
@@ -32,6 +37,9 @@ export const App: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
+  const [pancakeStats, setPancakeStats] = useState<PancakeFinancialStats | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -41,10 +49,11 @@ export const App: React.FC = () => {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [accList, status, notifs] = await Promise.all([
+      const [accList, status, notifs, userMe] = await Promise.all([
         ApiService.getAccounts().catch(() => []),
         ApiService.getSystemStatus().catch(() => null),
         ApiService.getNotifications().catch(() => ({ notifications: [], unreadCount: 0 })),
+        ApiService.getMe().catch(() => null),
       ]);
 
       const safeAccounts = Array.isArray(accList) ? accList : [];
@@ -52,6 +61,7 @@ export const App: React.FC = () => {
       setSystemStatus(status);
       setNotifications(notifs?.notifications || []);
       setUnreadCount(notifs?.unreadCount || 0);
+      if (userMe) setCurrentUser(userMe);
 
       if (!status && safeAccounts.length === 0) {
         setBackendError('Chưa kết nối máy chủ Backend. Giao diện đang chạy độc lập.');
@@ -67,16 +77,18 @@ export const App: React.FC = () => {
       }
 
       if (currentAcc) {
-        const [hier, rls, acts, sum] = await Promise.all([
+        const [hier, rls, acts, sum, pStats] = await Promise.all([
           ApiService.getHierarchy(currentAcc.id).catch(() => []),
           ApiService.getRules(currentAcc.id).catch(() => []),
           ApiService.getAutomationActions({ adAccountId: currentAcc.id }).catch(() => []),
           ApiService.getDashboardSummary(currentAcc.id).catch(() => null),
+          ApiService.getPancakeStats(currentAcc.id).catch(() => null),
         ]);
         setCampaigns(Array.isArray(hier) ? hier : []);
         setRules(Array.isArray(rls) ? rls : []);
         setActions(Array.isArray(acts) ? acts : []);
         setSummary(sum);
+        setPancakeStats(pStats);
       }
     } catch (err: any) {
       console.error('Error loading data:', err);
@@ -98,21 +110,29 @@ export const App: React.FC = () => {
     setSelectedAccount(acc);
     setLoading(true);
     try {
-      const [hier, rls, acts, sum] = await Promise.all([
+      const [hier, rls, acts, sum, pStats] = await Promise.all([
         ApiService.getHierarchy(acc.id),
         ApiService.getRules(acc.id),
         ApiService.getAutomationActions({ adAccountId: acc.id }),
         ApiService.getDashboardSummary(acc.id),
+        ApiService.getPancakeStats(acc.id).catch(() => null),
       ]);
       setCampaigns(hier);
       setRules(rls);
       setActions(acts);
       setSummary(sum);
+      setPancakeStats(pStats);
     } catch (err: any) {
       console.error(err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLogout = () => {
+    ApiService.logout();
+    setCurrentUser(null);
+    loadData();
   };
 
   // Emergency Stop toggle
@@ -186,6 +206,9 @@ export const App: React.FC = () => {
           onSelectTab={setActiveTab}
           rulesCount={rules.length}
           isMockMode={isMockMode}
+          currentUser={currentUser}
+          onOpenLogin={() => setIsLoginOpen(true)}
+          onLogout={handleLogout}
         />
 
         {/* Right Content Area */}
@@ -227,7 +250,16 @@ export const App: React.FC = () => {
               <CampaignsView
                 campaigns={campaigns}
                 currency={currency}
+                rules={rules}
+                pancakeStats={pancakeStats}
                 onRefresh={loadData}
+              />
+            )}
+
+            {activeTab === 'pancake' && (
+              <PancakeView
+                selectedAccount={selectedAccount}
+                currency={currency}
               />
             )}
 
@@ -236,6 +268,7 @@ export const App: React.FC = () => {
                 rules={rules}
                 accounts={accounts}
                 selectedAccount={selectedAccount}
+                campaigns={campaigns}
                 onRefresh={loadData}
                 onOpenSimulatorWithRule={(r) => setActiveTab('simulator')}
               />
@@ -256,6 +289,13 @@ export const App: React.FC = () => {
                 onRefresh={loadData}
               />
             )}
+
+            {activeTab === 'users' && (
+              <UsersView
+                accounts={accounts}
+                currentUser={currentUser}
+              />
+            )}
           </main>
         </div>
       </div>
@@ -266,6 +306,16 @@ export const App: React.FC = () => {
         onClose={() => setIsNotificationsOpen(false)}
         notifications={notifications}
         onMarkRead={handleMarkNotificationRead}
+      />
+
+      {/* Login Modal for Sub-accounts and Admin */}
+      <LoginModal
+        isOpen={isLoginOpen}
+        onClose={() => setIsLoginOpen(false)}
+        onLoginSuccess={(u) => {
+          setCurrentUser(u);
+          loadData();
+        }}
       />
     </div>
   );

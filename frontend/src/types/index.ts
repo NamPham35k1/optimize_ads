@@ -169,3 +169,77 @@ export interface SystemStatus {
   activeRulesCount: number;
   nodeEnv: string;
 }
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: 'ADMIN' | 'SUB_ACCOUNT';
+  isActive: boolean;
+  createdAt: string;
+  assignedAdAccountIds?: string[];
+  assignedAdAccounts?: Array<{
+    id: string;
+    name: string;
+    facebookAdAccountId: string;
+    currency?: string;
+  }>;
+}
+
+export interface PancakeShop {
+  id: string;
+  adAccountId?: string;
+  name: string;
+  shopId: string;
+  apiToken: string;
+  pageId?: string;
+  isActive: boolean;
+  targetCostPercent: number; // <= 35% An toan
+  warningCostPercent: number; // 35% - 40% Canh bao
+  dangerCostPercent: number; // > 50% Nguy hiem
+  createdAt: string;
+  updatedAt: string;
+  adAccount?: {
+    id: string;
+    name: string;
+    facebookAdAccountId: string;
+  };
+  _count?: {
+    orders: number;
+  };
+}
+
+export interface PancakeOrder {
+  id: string;
+  shopId: string;
+  pancakeOrderId: string;
+  customerName?: string;
+  customerPhone?: string;
+  totalAmount: number;
+  status: string;
+  fbCampaignId?: string;
+  orderCreatedAt: string;
+}
+
+export interface PancakeFinancialStats {
+  adAccountId: string;
+  adAccountName: string;
+  currency: string;
+  totalAdsSpend: number;
+  totalRevenue: number;
+  orderCount: number;
+  profit: number;
+  costRevenuePercent: number;
+  status: 'SAFE' | 'WARNING' | 'DANGER';
+  statusLabel: string;
+  campaigns: Array<{
+    campaignId: string;
+    campaignName: string;
+    spend: number;
+    revenue: number;
+    orders: number;
+    profit: number;
+    costRevenuePercent: number;
+    status: 'SAFE' | 'WARNING' | 'DANGER';
+  }>;
+}

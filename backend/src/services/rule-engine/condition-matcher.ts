@@ -115,7 +115,22 @@ export class ConditionMatcher {
       };
     }
 
-    // Case 3: Other standard metrics (CPM, CPC, CTR, TOTAL_SPEND)
+    // Case 3: Pancake POS Ads Cost / Revenue % (Tỷ lệ Chi phí Ads / Doanh thu)
+    if (rule.metricType === 'ADS_COST_REVENUE_PERCENT') {
+      const costPercent = metrics.costRevenuePercent ?? 0;
+      const isViolating = this.compare(costPercent, rule.operator, rule.thresholdValue);
+      return {
+        conditionMet: isViolating,
+        currentValue: costPercent,
+        thresholdValue: rule.thresholdValue,
+        isSufficientData: true,
+        reason: isViolating
+          ? `Tỷ lệ Chi phí Ads / Doanh thu (${costPercent}%) ${symbol} ngưỡng an toàn (${rule.thresholdValue}%)`
+          : `Tỷ lệ Chi phí Ads / Doanh thu (${costPercent}%) nằm trong mức cho phép (${rule.thresholdValue}%)`,
+      };
+    }
+
+    // Case 4: Other standard metrics (CPM, CPC, CTR, TOTAL_SPEND)
     const currentValue = MetricResolver.extractValueByMetricType(metrics, rule.metricType);
     const isViolating = this.compare(currentValue, rule.operator, rule.thresholdValue);
 

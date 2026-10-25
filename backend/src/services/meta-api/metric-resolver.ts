@@ -30,6 +30,7 @@ export interface ResolvedMetrics {
   detectedMessagingActionType?: string;
   isZeroResults: boolean;
   hasSufficientData: boolean;
+  costRevenuePercent?: number;
   dataQualityWarning?: string;
 }
 
@@ -188,6 +189,8 @@ export class MetricResolver {
         return metrics.ctr;
       case 'TOTAL_SPEND':
         return metrics.spend;
+      case 'ADS_COST_REVENUE_PERCENT':
+        return metrics.costRevenuePercent || 0;
       case 'MESSAGING_COUNT':
         return metrics.messagingConversations;
       default:

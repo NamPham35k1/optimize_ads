@@ -7,6 +7,9 @@ import {
   NotificationItem,
   DashboardSummary,
   SystemStatus,
+  User,
+  PancakeShop,
+  PancakeFinancialStats,
 } from '../types';
 
 const apiBase = import.meta.env.VITE_API_URL
@@ -16,6 +19,15 @@ const apiBase = import.meta.env.VITE_API_URL
 const api = axios.create({
   baseURL: apiBase,
   timeout: 20000,
+});
+
+// Interceptor to inject Authorization Bearer token from localStorage
+api.interceptors.request.use((reqConfig) => {
+  const token = localStorage.getItem('autoads_auth_token');
+  if (token) {
+    reqConfig.headers.Authorization = `Bearer ${token}`;
+  }
+  return reqConfig;
 });
 
 // Interceptor to catch HTML responses (when backend is down or 404 rewrite to index.html)
@@ -155,5 +167,97 @@ export const ApiService = {
       params: { adAccountId },
     });
     return res.data.data;
+  },
+
+  // Authentication & Sub-Account Management
+  async login(email: string, password?: string): Promise<{ token: string; user: User }> {
+    const res = await api.post('/auth/login', { email, password });
+    if (res.data.data?.token) {
+      localStorage.setItem('autoads_auth_token', res.data.data.token);
+    }
+    return res.data.data;
+  },
+
+  async getMe(): Promise<User> {
+    const res = await api.get('/auth/me');
+    return res.data.data;
+  },
+
+  logout() {
+    localStorage.removeItem('autoads_auth_token');
+  },
+
+  async getUsers(): Promise<User[]> {
+    const res = await api.get('/users');
+    return res.data.data;
+  },
+
+  async createUser(data: {
+    name: string;
+    email: string;
+    password?: string;
+    role?: string;
+    assignedAdAccountIds?: string[];
+  }): Promise<User> {
+    const res = await api.post('/users', data);
+    return res.data.data;
+  },
+
+  async updateUser(
+    id: string,
+    data: {
+      name?: string;
+      email?: string;
+      password?: string;
+      role?: string;
+      isActive?: boolean;
+      assignedAdAccountIds?: string[];
+    }
+  ): Promise<User> {
+    const res = await api.put(`/users/${id}`, data);
+    return res.data.data;
+  },
+
+  async deleteUser(id: string): Promise<void> {
+    await api.delete(`/users/${id}`);
+  },
+
+  // POS Pancake & Financial Analytics
+  async getPancakeShops(adAccountId?: string): Promise<PancakeShop[]> {
+    const res = await api.get('/pancake/shops', { params: { adAccountId } });
+    return res.data.data;
+  },
+
+  async connectPancakeShop(data: {
+    name: string;
+    shopId: string;
+    apiToken: string;
+    pageId?: string;
+    adAccountId?: string;
+    targetCostPercent?: number;
+    warningCostPercent?: number;
+    dangerCostPercent?: number;
+  }): Promise<PancakeShop> {
+    const res = await api.post('/pancake/shops', data);
+    return res.data.data;
+  },
+
+  async syncPancakeShop(id: string): Promise<{ syncedCount: number }> {
+    const res = await api.post(`/pancake/shops/${id}/sync`);
+    return res.data.data;
+  },
+
+  async deletePancakeShop(id: string): Promise<void> {
+    await api.delete(`/pancake/shops/${id}`);
+  },
+
+  async getPancakeStats(adAccountId: string): Promise<PancakeFinancialStats> {
+    const res = await api.get('/pancake/stats', { params: { adAccountId } });
+    return res.data.data;
+  },
+
+  async seedMockPancake(adAccountId: string, shopName?: string): Promise<any> {
+    const res = await api.post('/pancake/seed-mock', { adAccountId, shopName });
+    return res.data;
   },
 };

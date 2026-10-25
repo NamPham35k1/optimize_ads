@@ -12,15 +12,17 @@ import {
   Pause,
   Play,
 } from 'lucide-react';
-import { CampaignSnapshot, AdSetSnapshot, AdSnapshot } from '../../types';
+import { CampaignSnapshot, AdSetSnapshot, AdSnapshot, CareRule, PancakeFinancialStats } from '../../types';
 
 interface Props {
   campaigns: CampaignSnapshot[];
   currency: string;
+  rules?: CareRule[];
+  pancakeStats?: PancakeFinancialStats | null;
   onRefresh: () => void;
 }
 
-export const CampaignsView: React.FC<Props> = ({ campaigns, currency = 'VND' }) => {
+export const CampaignsView: React.FC<Props> = ({ campaigns, currency = 'VND', rules = [], pancakeStats }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [expandedCampaigns, setExpandedCampaigns] = useState<Record<string, boolean>>({});
@@ -174,6 +176,21 @@ export const CampaignsView: React.FC<Props> = ({ campaigns, currency = 'VND' }) 
                     ctr: 0,
                   };
 
+                  const matchingRules = rules.filter((r) => {
+                    if (!r.isEnabled) return false;
+                    if (r.targetMode === 'ALL_ACTIVE') return true;
+                    try {
+                      const ids = JSON.parse(r.targetEntityIds || '[]');
+                      return ids.includes(camp.fbCampaignId);
+                    } catch {
+                      return false;
+                    }
+                  });
+
+                  const campPancake = pancakeStats?.campaigns?.find(
+                    (c) => c.campaignId === camp.fbCampaignId
+                  );
+
                   return (
                     <React.Fragment key={camp.fbCampaignId}>
                       {/* Campaign Row */}
@@ -200,6 +217,45 @@ export const CampaignsView: React.FC<Props> = ({ campaigns, currency = 'VND' }) 
                           <div className="text-[11px] text-slate-400 font-mono">
                             ID: {camp.fbCampaignId} • Mục tiêu: {camp.objective}
                           </div>
+
+                          {/* Matching Rules Tags */}
+                          {matchingRules.length > 0 && (
+                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                              <span className="text-[10px] text-slate-500 font-sans">Quy tắc:</span>
+                              {matchingRules.map((r) => (
+                                <span
+                                  key={r.id}
+                                  className={`text-[10px] px-1.5 py-0.5 rounded border font-sans flex items-center gap-1 ${
+                                    r.targetMode === 'SELECTED'
+                                      ? 'bg-purple-500/10 text-purple-300 border-purple-500/30'
+                                      : 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20'
+                                  }`}
+                                  title={r.targetMode === 'SELECTED' ? 'Quy tắc áp dụng riêng cho camp này' : 'Quy tắc chung cho tất cả camp'}
+                                >
+                                  <span>{r.targetMode === 'SELECTED' ? '🎯' : '🌐'} {r.name}</span>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Pancake POS Profit/Loss Badge */}
+                          {campPancake && campPancake.revenue > 0 && (
+                            <div className="flex items-center gap-1.5 mt-1 flex-wrap font-sans">
+                              <span className="text-[10px] text-slate-400">Pancake:</span>
+                              <span className="text-[10px] text-white font-medium">{formatMoney(campPancake.revenue)} ({campPancake.orders} đơn)</span>
+                              <span
+                                className={`text-[10px] px-1.5 py-0.5 rounded font-bold border ${
+                                  campPancake.status === 'SAFE'
+                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                    : campPancake.status === 'WARNING'
+                                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                    : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                                }`}
+                              >
+                                {campPancake.status === 'SAFE' ? '🟢' : campPancake.status === 'WARNING' ? '🟡' : '🔴'} Chi phí: {campPancake.costRevenuePercent}%
+                              </span>
+                            </div>
+                          )}
                         </td>
                         <td className="py-3 px-3">
                           {getStatusBadge(camp.status, camp.isPausedBySystem)}
