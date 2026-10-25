@@ -312,7 +312,7 @@ export class PancakeService {
     const profit = totalRevenue - totalAdsSpend;
 
     // 4. Campaign breakdown
-    const campaignsBreakdown = adAccount.campaignSnapshots.map((camp) => {
+    const campaignsBreakdown = adAccount.campaignSnapshots.map((camp: any) => {
       const campSpend = spendByCampaign[camp.fbCampaignId] || 0;
       const campRev = revenueByCampaign[camp.fbCampaignId] || 0;
       const campOrders = ordersByCampaign[camp.fbCampaignId] || 0;

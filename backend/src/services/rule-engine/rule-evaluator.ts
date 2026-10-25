@@ -287,7 +287,7 @@ export class RuleEvaluator {
             : {}),
         },
       });
-      return campaigns.map((c) => ({ id: c.fbCampaignId, name: c.name }));
+      return campaigns.map((c: any) => ({ id: c.fbCampaignId, name: c.name }));
     } else if (rule.scope === 'ADSET') {
       const adsets = await prisma.adSetSnapshot.findMany({
         where: {
@@ -303,7 +303,7 @@ export class RuleEvaluator {
             : {}),
         },
       });
-      return adsets.map((s) => ({ id: s.fbAdSetId, name: s.name }));
+      return adsets.map((s: any) => ({ id: s.fbAdSetId, name: s.name }));
     } else {
       const ads = await prisma.adSnapshot.findMany({
         where: {
@@ -319,7 +319,7 @@ export class RuleEvaluator {
             : {}),
         },
       });
-      return ads.map((a) => ({ id: a.fbAdId, name: a.name }));
+      return ads.map((a: any) => ({ id: a.fbAdId, name: a.name }));
     }
   }
 }

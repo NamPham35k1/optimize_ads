@@ -87,7 +87,7 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
-        assignedAdAccountIds: user.accountAssignments.map((a) => a.adAccountId),
+        assignedAdAccountIds: user.accountAssignments.map((a: any) => a.adAccountId),
       },
     };
   }
