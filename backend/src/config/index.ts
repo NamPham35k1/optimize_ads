@@ -7,7 +7,7 @@ export const config = {
   port: parseInt(process.env.PORT || '5000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
   databaseUrl: process.env.DATABASE_URL || 'file:./dev.db',
-  encryptionKey: process.env.ENCRYPTION_KEY || 'auto-ads-care-secret-key-32chr!',
+  encryptionKey: process.env.ENCRYPTION_KEY || process.env.ENCRYPTION_SECRET || 'auto-ads-care-secret-key-32chr!',
   metaAppId: process.env.META_APP_ID || '',
   metaAppSecret: process.env.META_APP_SECRET || '',
   metaApiVersion: process.env.META_API_VERSION || 'v22.0',
