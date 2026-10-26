@@ -10,6 +10,11 @@ import { PancakeController } from '../controllers/pancake.controller.js';
 
 const router = Router();
 
+// Healthcheck
+router.get('/health', (req, res) => {
+  res.json({ status: 'ok', app: 'Auto Ads Care', timestamp: new Date().toISOString() });
+});
+
 // Authentication & Sub-Account Management API
 router.post('/auth/login', AuthController.login);
 router.get('/auth/me', AuthController.getMe);

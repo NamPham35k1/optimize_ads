@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, WifiOff } from 'lucide-react';
+import { BackendConnectionBanner, ConnectionState } from './components/layout/BackendConnectionBanner';
 import { Sidebar, NavTab } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { EmergencyStopBanner } from './components/layout/EmergencyStopBanner';
@@ -44,13 +45,34 @@ export const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const [backendError, setBackendError] = useState<string | null>(null);
+  const [connectionState, setConnectionState] = useState<ConnectionState>('connecting');
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  // Timer for connection countdown / elapsed time
+  useEffect(() => {
+    let timer: any = null;
+    if (connectionState === 'connecting') {
+      timer = setInterval(() => {
+        setElapsedSeconds((prev) => prev + 1);
+      }, 1000);
+    } else {
+      setElapsedSeconds(0);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [connectionState]);
 
   // Load all initial data
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (isRetry = false) => {
     setLoading(true);
+    if (isRetry) {
+      setConnectionState('connecting');
+      setElapsedSeconds(0);
+    }
     try {
       const [accList, status, notifs, userMe] = await Promise.all([
-        ApiService.getAccounts().catch(() => []),
+        ApiService.getAccounts().catch(() => null),
         ApiService.getSystemStatus().catch(() => null),
         ApiService.getNotifications().catch(() => ({ notifications: [], unreadCount: 0 })),
         ApiService.getMe().catch(() => null),
@@ -63,10 +85,17 @@ export const App: React.FC = () => {
       setUnreadCount(notifs?.unreadCount || 0);
       if (userMe) setCurrentUser(userMe);
 
-      if (!status && safeAccounts.length === 0) {
+      const isConnected = status !== null || accList !== null;
+      if (!isConnected) {
         setBackendError('Chưa kết nối máy chủ Backend. Giao diện đang chạy độc lập.');
+        setConnectionState('error');
       } else {
         setBackendError(null);
+        setConnectionState((prev) => (prev === 'connecting' ? 'connected' : prev));
+        // Auto-dismiss connected banner after 3.5s
+        setTimeout(() => {
+          setConnectionState((cur) => (cur === 'connected' ? 'idle' : cur));
+        }, 3500);
       }
 
       // Default to first account or keep selected
@@ -93,17 +122,49 @@ export const App: React.FC = () => {
     } catch (err: any) {
       console.error('Error loading data:', err);
       setBackendError('Không thể kết nối Backend API.');
+      setConnectionState('error');
     } finally {
       setLoading(false);
     }
   }, [selectedAccount]);
 
-  useEffect(() => {
-    loadData();
-    // Poll every 30 seconds for live updates
-    const interval = setInterval(loadData, 30000);
-    return () => clearInterval(interval);
+  // Active retry and wake-up handler for Render
+  const handleWakeUpAndConnect = useCallback(async () => {
+    setConnectionState('connecting');
+    setElapsedSeconds(0);
+    setLoading(true);
+
+    const maxWaitSeconds = 60;
+    const startTime = Date.now();
+    let connected = false;
+
+    while (Date.now() - startTime < maxWaitSeconds * 1000) {
+      try {
+        const ok = await ApiService.pingHealth();
+        if (ok) {
+          connected = true;
+          break;
+        }
+      } catch {
+        // Keep waiting for Render to wake up
+      }
+      await new Promise((r) => setTimeout(r, 3500));
+    }
+
+    await loadData(false);
+    if (!connected) {
+      setConnectionState('error');
+    }
   }, [loadData]);
+
+  useEffect(() => {
+    handleWakeUpAndConnect();
+    // Poll every 30 seconds for live updates
+    const interval = setInterval(() => {
+      loadData(false);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [handleWakeUpAndConnect, loadData]);
 
   // Handle Account Change
   const handleSelectAccount = async (acc: AdAccount) => {
@@ -186,17 +247,13 @@ export const App: React.FC = () => {
         loading={loading}
       />
 
-      {/* Backend Disconnected Notice Banner */}
-      {backendError && (
-        <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 text-xs text-amber-300 flex items-center justify-between z-30 shrink-0">
-          <div className="flex items-center space-x-2">
-            <WifiOff className="w-4 h-4 text-amber-400 shrink-0" />
-            <span>
-              <strong>Chưa kết nối Backend:</strong> Giao diện đang chạy độc lập trên Vercel. Bạn có thể xem giao diện và tab "Tài Khoản Ads", hoặc trỏ biến <code>VITE_API_URL</code> tới máy chủ backend.
-            </span>
-          </div>
-        </div>
-      )}
+      {/* Backend Connection Loading, Success & Error Banner */}
+      <BackendConnectionBanner
+        connectionState={connectionState}
+        elapsedSeconds={elapsedSeconds}
+        onRetry={handleWakeUpAndConnect}
+        onSuccessDismiss={() => setConnectionState('idle')}
+      />
 
       {/* Main Layout Shell */}
       <div className="flex flex-1 overflow-hidden">

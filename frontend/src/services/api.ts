@@ -12,18 +12,59 @@ import {
   PancakeFinancialStats,
 } from '../types';
 
-const rawUrl = (import.meta.env.VITE_API_URL as string || '').trim().replace(/\/+$/, '');
-const apiBase = rawUrl
-  ? (rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`)
-  : '/api';
+export const DEFAULT_RENDER_URL = 'https://optimize-ads.onrender.com';
+
+export function getCustomBackendUrl(): string {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('autoads_backend_url');
+    if (saved && saved.trim()) return saved.trim();
+  }
+  return '';
+}
+
+export function setCustomBackendUrl(url: string): void {
+  if (typeof window !== 'undefined') {
+    if (url && url.trim()) {
+      localStorage.setItem('autoads_backend_url', url.trim());
+    } else {
+      localStorage.removeItem('autoads_backend_url');
+    }
+  }
+}
+
+export function getEffectiveBackendUrl(): string {
+  const custom = getCustomBackendUrl();
+  if (custom) return custom;
+
+  const envUrl = (import.meta.env.VITE_API_URL as string || '').trim();
+  if (envUrl) return envUrl;
+
+  // If in browser on non-localhost (Vercel, custom domain, etc.)
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0';
+    if (!isLocalhost) {
+      return DEFAULT_RENDER_URL;
+    }
+  }
+
+  return '';
+}
+
+export function getApiBaseUrl(): string {
+  const base = getEffectiveBackendUrl().replace(/\/+$/, '');
+  if (!base) return '/api';
+  return base.endsWith('/api') ? base : `${base}/api`;
+}
 
 const api = axios.create({
-  baseURL: apiBase,
-  timeout: 20000,
+  baseURL: getApiBaseUrl(),
+  timeout: 60000, // 60s to accommodate Render free instance cold starts (30-50s)
 });
 
-// Interceptor to inject Authorization Bearer token from localStorage
+// Interceptor to inject dynamic baseURL and Authorization Bearer token
 api.interceptors.request.use((reqConfig) => {
+  reqConfig.baseURL = getApiBaseUrl();
   const token = localStorage.getItem('autoads_auth_token');
   if (token) {
     reqConfig.headers.Authorization = `Bearer ${token}`;
@@ -261,4 +302,26 @@ export const ApiService = {
     const res = await api.post('/pancake/seed-mock', { adAccountId, shopName });
     return res.data;
   },
+
+  // Backend Health Ping & URL Configuration Helpers
+  async pingHealth(): Promise<boolean> {
+    try {
+      const base = getEffectiveBackendUrl().replace(/\/+$/, '');
+      const healthUrl = base ? `${base}/health` : '/health';
+      const res = await axios.get(healthUrl, { timeout: 15000 });
+      return res.status === 200 && (res.data?.status === 'ok' || res.data?.app === 'Auto Ads Care');
+    } catch {
+      try {
+        const res = await api.get('/system/status', { timeout: 15000 });
+        return res.status === 200 && res.data?.success === true;
+      } catch {
+        return false;
+      }
+    }
+  },
+
+  getEffectiveBackendUrl,
+  getCustomBackendUrl,
+  setCustomBackendUrl,
+  DEFAULT_RENDER_URL,
 };
