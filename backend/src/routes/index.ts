@@ -7,6 +7,7 @@ import { NotificationController } from '../controllers/notification.controller.j
 import { SystemController } from '../controllers/system.controller.js';
 import { AuthController } from '../controllers/auth.controller.js';
 import { PancakeController } from '../controllers/pancake.controller.js';
+import { TelegramController } from '../controllers/telegram.controller.js';
 
 const router = Router();
 
@@ -66,7 +67,6 @@ router.post('/system/trigger-scheduler', SystemController.triggerScheduler);
 router.get('/dashboard/summary', SystemController.getDashboardSummary);
 
 // Telegram Mobile Alert & Remote Control API
-import { TelegramController } from '../controllers/telegram.controller.js';
 router.get('/telegram/config', TelegramController.getConfig);
 router.post('/telegram/config', TelegramController.updateConfig);
 router.post('/telegram/test', TelegramController.testConnection);
