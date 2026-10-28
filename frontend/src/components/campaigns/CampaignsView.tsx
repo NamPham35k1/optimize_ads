@@ -67,7 +67,9 @@ export const CampaignsView: React.FC<Props> = ({
         entityId,
         entityType,
         status: targetStatus,
+        entityName,
       });
+
       onRefresh();
     } catch (err: any) {
       alert(`Lỗi khi chuyển trạng thái: ${err.response?.data?.error || err.message}`);

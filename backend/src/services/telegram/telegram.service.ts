@@ -194,13 +194,13 @@ export class TelegramService {
     }
 
     const text =
-      `🚨 <b>[AUTO ADS CARE — ĐÃ TẮT ADS THÀNH CÔNG]</b>\n` +
+      `🚨 <b>[BOT TỰ ĐỘNG TẮT — PHÁT HIỆN VI PHẠM]</b>\n` +
       `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
       `🎯 <b>Đối tượng:</b> [${typeLabel}] <b>${payload.entityName}</b>\n` +
       `🆔 <b>ID:</b> <code>${payload.entityId}</code>\n` +
-      `💰 <b>Lý do vi phạm:</b> ${payload.reason}\n` +
+      `⚠️ <b>Lý do vi phạm:</b> ${payload.reason}\n` +
       `⏰ <b>Thời gian:</b> ${nowStr}\n` +
-      `🛡️ <b>Trạng thái:</b> Đã gửi lệnh TẠM DỪNG (PAUSED) lên Facebook!`;
+      `🛡️ <b>Trạng thái:</b> Bot đã tự động gửi lệnh TẠM DỪNG (PAUSED) lên Facebook theo đúng quy tắc đã cài!`;
 
     const replyMarkup = {
       inline_keyboard: [
@@ -221,8 +221,76 @@ export class TelegramService {
   }
 
   /**
+   * Send notification when an entity is manually paused or resumed from the tool
+   */
+  public static async sendManualActionAlert(payload: {
+    entityType: 'CAMPAIGN' | 'ADSET' | 'AD';
+    entityName: string;
+    entityId: string;
+    status: 'ACTIVE' | 'PAUSED';
+    adAccountId: string;
+  }): Promise<boolean> {
+    const typeLabel =
+      payload.entityType === 'CAMPAIGN'
+        ? 'Chiến Dịch'
+        : payload.entityType === 'ADSET'
+        ? 'Nhóm Quảng Cáo'
+        : 'Quảng Cáo';
+
+    const nowStr = new Date().toLocaleTimeString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+
+    const isPaused = payload.status === 'PAUSED';
+
+    const text = isPaused
+      ? `🎛️ <b>[THAO TÁC THỦ CÔNG TỪ TOOL — ĐÃ TẮT ADS]</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🎯 <b>Đối tượng:</b> [${typeLabel}] <b>${payload.entityName}</b>\n` +
+        `🆔 <b>ID:</b> <code>${payload.entityId}</code>\n` +
+        `👤 <b>Hành động:</b> Bạn đã bấm <b>TẠM DỪNG (TẮT)</b> trực tiếp trên giao diện web\n` +
+        `⏰ <b>Thời gian:</b> ${nowStr}\n` +
+        `⏸️ <b>Trạng thái:</b> Đã gửi lệnh TẠM DỪNG (PAUSED) lên Facebook`
+      : `🟢 <b>[THAO TÁC THỦ CÔNG TỪ TOOL — ĐÃ BẬT LẠI]</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🎯 <b>Đối tượng:</b> [${typeLabel}] <b>${payload.entityName}</b>\n` +
+        `🆔 <b>ID:</b> <code>${payload.entityId}</code>\n` +
+        `👤 <b>Hành động:</b> Bạn đã bấm <b>BẬT LẠI</b> trực tiếp trên giao diện web\n` +
+        `⏰ <b>Thời gian:</b> ${nowStr}\n` +
+        `▶️ <b>Trạng thái:</b> Đã kích hoạt ĐANG CHẠY (ACTIVE) trên Facebook`;
+
+    const replyMarkup = isPaused
+      ? {
+          inline_keyboard: [
+            [
+              {
+                text: `🟢 Bật lại đối tượng này`,
+                callback_data: `resume:${payload.entityType.toLowerCase()}:${payload.entityId}:${payload.adAccountId}`,
+              },
+            ],
+          ],
+        }
+      : {
+          inline_keyboard: [
+            [
+              {
+                text: `🔴 Tắt đối tượng này`,
+                callback_data: `pause:${payload.entityType.toLowerCase()}:${payload.entityId}:${payload.adAccountId}`,
+              },
+            ],
+          ],
+        };
+
+    return this.sendMessage(text, replyMarkup);
+  }
+
+  /**
    * Build and send periodic status report (e.g. every 5 mins)
    */
+  public static async sendPeriodicReport(): Promise<boolean> {
+    try {
       const adAccount = await prisma.adAccount.findFirst({
         where: {
           isMonitored: true,
@@ -232,6 +300,7 @@ export class TelegramService {
       });
 
       if (!adAccount) return false;
+
 
 
       // Calculate totals for TODAY

@@ -131,8 +131,9 @@ export const TelegramView: React.FC = () => {
               )}
             </h2>
             <p className="text-xs text-slate-400 mt-1">
-              Gửi thông báo tức thì khi ads bị tắt, tự động báo cáo định kỳ 5 phút và cho phép bạn bấm nút tắt/bật camp trực tiếp trên Telegram.
+              Hệ thống luôn chạy ngầm 24/7 để kiểm tra quy tắc. Tự động gửi thông báo khi camp vi phạm quy tắc (vượt ngân sách, CPA cao...) và bị tự động tắt, hoặc khi bạn thao tác tắt thủ công từ tool.
             </p>
+
           </div>
         </div>
 
@@ -240,11 +241,12 @@ export const TelegramView: React.FC = () => {
                 <div className="space-y-0.5">
                   <div className="text-xs font-bold text-white flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Báo Cáo Số Liệu Định Kỳ Về Điện Thoại</span>
+                    <span>Báo Cáo Số Liệu Định Kỳ (Tùy chọn)</span>
                   </div>
                   <p className="text-[11px] text-slate-400">
-                    Tự động gửi tin tổng kết chi tiêu, số tin nhắn, CPA hôm nay để bạn không cần mở máy tính.
+                    Khuyến nghị: TẮT (Chỉ nhận tin khi camp vi phạm quy tắc tự động tắt hoặc khi tắt thủ công. Tránh làm phiền khi không có sự cố).
                   </p>
+
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input

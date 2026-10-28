@@ -29,7 +29,7 @@ async function bootstrap() {
       console.log(`[Bootstrap] Updated admin password: admin123`);
     }
 
-    // 2. Ensure initial Emergency Stop setting exists
+    // 2. Ensure initial Emergency Stop setting exists & periodic report is off by default
     await prisma.systemSetting.upsert({
       where: { key: 'EMERGENCY_STOP' },
       update: {},
@@ -39,6 +39,18 @@ async function bootstrap() {
         description: 'Global Emergency Stop Kill Switch',
       },
     });
+
+    // Disable 5-minute periodic spam report by default (only notify on auto-pause & manual pause)
+    await prisma.systemSetting.upsert({
+      where: { key: 'TELEGRAM_PERIODIC_ENABLED' },
+      update: { value: 'false' },
+      create: {
+        key: 'TELEGRAM_PERIODIC_ENABLED',
+        value: 'false',
+        description: 'Periodic report disabled by default to avoid spam',
+      },
+    });
+
 
     // 3. Clean up any leftover mock accounts from previous demo runs
     try {

@@ -198,6 +198,15 @@ Dưới đây là 3 kịch bản phổ biến nhất giúp bạn tối ưu chi p
 - **Min Results (Kết quả tối thiểu)**: Ngăn chặn việc vừa ra 1 tin nhắn đầu tiên đắt đã bị tắt nhóm ads tiềm năng.
 - **Consecutive Violations (Vi phạm liên tiếp)**: Bắt buộc đối tượng phải vi phạm 2 chu kỳ quét liên tiếp mới tắt, tránh bị ảnh hưởng bởi việc Facebook chậm cập nhật số liệu.
 
+### 📱 Thông Báo & Điều Khiển Qua Telegram (Canh 24/7)
+- **Cơ chế hoạt động ngầm**: Bot liên tục quét số liệu ngầm theo chu kỳ cron (mỗi 1 phút) để so khớp các quy tắc (Rule) mà bạn đã thiết lập.
+- **Tiêu chí gửi thông báo về Telegram**:
+  1. **Khi bot TỰ ĐỘNG TẮT do vi phạm**: Bất cứ khi nào một chiến dịch, nhóm quảng cáo hoặc quảng cáo bị vượt ngân sách, CPA quá cao... và bị bot tự động gửi lệnh tắt lên Facebook, Telegram sẽ ngay lập tức nhận tin cảnh báo chi tiết (Tên đối tượng, ID, Lý do vi phạm, Thời gian).
+  2. **Khi người dùng THAO TÁC TẮT THỦ CÔNG trên tool**: Bất cứ khi nào bạn bấm nút "Tắt" (hoặc "Bật lại") trực tiếp trên bảng Chiến Dịch của web, bot cũng sẽ gửi ngay tin nhắn về Telegram để ghi nhận hành động.
+  3. **Không spam định kỳ**: Chế độ báo cáo định kỳ 5 phút mặc định được **TẮT** để điện thoại của bạn không bị làm phiền khi quảng cáo vẫn đang hoạt động ổn định trong ngưỡng an toàn.
+- **Nút điều khiển trực tiếp từ điện thoại**: Dưới mỗi tin nhắn thông báo tắt ads, bot đính kèm sẵn nút bấm **`🟢 Bật lại đối tượng này`** và **`🛑 Dừng khẩn cấp bot`** để bạn có thể xử lý ngay lập tức trên điện thoại mà không cần mở máy tính.
+
+
 ---
 
 ## 5. KHẮC PHỤC SỰ CỐ THƯỜNG GẶP (TROUBLESHOOTING)

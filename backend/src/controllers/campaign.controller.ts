@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import prisma from '../db.js';
 import { MetaService } from '../services/meta-api/meta-service.js';
+import { TelegramService } from '../services/telegram/telegram.service.js';
+
 
 export class CampaignController {
   public static async getHierarchy(req: Request, res: Response): Promise<void> {
@@ -102,7 +104,7 @@ export class CampaignController {
 
   public static async toggleStatus(req: Request, res: Response): Promise<void> {
     try {
-      const { adAccountId, entityId, entityType, status } = req.body;
+      const { adAccountId, entityId, entityType, status, entityName: reqEntityName } = req.body;
 
       if (!adAccountId || !entityId || !entityType || !status) {
         res.status(400).json({ success: false, error: 'Thiếu thông tin yêu cầu (adAccountId, entityId, entityType, status)' });
@@ -116,6 +118,20 @@ export class CampaignController {
 
       const { client, accessToken } = await MetaService.getClientForAccount(adAccountId);
       const level = entityType.toLowerCase() as 'campaign' | 'adset' | 'ad';
+
+      let entityName = reqEntityName || entityId;
+      if (!reqEntityName) {
+        if (level === 'campaign') {
+          const snap = await prisma.campaignSnapshot.findUnique({ where: { fbCampaignId: entityId } });
+          if (snap) entityName = snap.name;
+        } else if (level === 'adset') {
+          const snap = await prisma.adSetSnapshot.findUnique({ where: { fbAdSetId: entityId } });
+          if (snap) entityName = snap.name;
+        } else if (level === 'ad') {
+          const snap = await prisma.adSnapshot.findUnique({ where: { fbAdId: entityId } });
+          if (snap) entityName = snap.name;
+        }
+      }
 
       const result = await client.updateEntityStatus(entityId, level, status, accessToken);
 
@@ -137,6 +153,15 @@ export class CampaignController {
         });
       }
 
+      // Gửi thông báo về Telegram khi người dùng thao tác tắt / bật thủ công trên tool
+      TelegramService.sendManualActionAlert({
+        entityType: entityType.toUpperCase() as any,
+        entityName,
+        entityId,
+        status,
+        adAccountId,
+      }).catch((tErr) => console.error('[CampaignController Telegram Alert Error]:', tErr.message));
+
       res.json({
         success: true,
         data: {
@@ -147,6 +172,7 @@ export class CampaignController {
           message: `Đã chuyển ${entityType} sang ${status === 'ACTIVE' ? 'ĐANG CHẠY' : 'TẠM DỪNG'}`,
         },
       });
+
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }

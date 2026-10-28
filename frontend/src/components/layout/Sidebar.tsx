@@ -96,8 +96,9 @@ export const Sidebar: React.FC<Props> = ({
       id: 'telegram',
       label: 'Báo Điện Thoại (Telegram)',
       icon: <Send className="w-5 h-5 text-sky-400" />,
-      badge: '5 Phút',
+      badge: 'Canh 24/7',
     },
+
     // Đã ẩn phần phân chia tài khoản (users) theo yêu cầu - Chế độ 1 người dùng trực tiếp
   ];
 

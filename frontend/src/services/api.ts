@@ -126,10 +126,12 @@ export const ApiService = {
     entityId: string;
     entityType: 'campaign' | 'adset' | 'ad';
     status: 'ACTIVE' | 'PAUSED';
+    entityName?: string;
   }): Promise<any> {
     const res = await api.post('/campaigns/toggle-status', payload);
     return res.data;
   },
+
 
   // Rules
   async getRules(adAccountId?: string): Promise<CareRule[]> {
