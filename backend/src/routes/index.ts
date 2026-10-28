@@ -28,7 +28,9 @@ router.delete('/users/:id', AuthController.deleteUser);
 router.get('/accounts', AccountController.listAccounts);
 router.post('/accounts/connect', AccountController.connectLiveAccount);
 router.post('/accounts/:id/sync', AccountController.syncAccount);
-router.post('/accounts/seed-mock', AccountController.seedMock);
+router.delete('/accounts/:id', AccountController.deleteAccount);
+router.post('/accounts/purge-mock', AccountController.purgeMock);
+
 
 // POS Pancake & Financial Analytics API
 router.get('/pancake/shops', PancakeController.listShops);

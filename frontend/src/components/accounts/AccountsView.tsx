@@ -9,6 +9,7 @@ import {
   ExternalLink,
   CheckCircle2,
   Lock,
+  Trash2,
 } from 'lucide-react';
 import { AdAccount } from '../../types';
 import { ApiService } from '../../services/api';
@@ -32,6 +33,11 @@ export const AccountsView: React.FC<Props> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Filter out any mock accounts - only display real connected accounts
+  const displayAccounts = accounts.filter(
+    (acc) => !acc.isMock && !acc.name.includes('[MOCK]') && !acc.facebookAdAccountId.includes('mock')
+  );
 
   const handleConnect = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,13 +77,14 @@ export const AccountsView: React.FC<Props> = ({
     }
   };
 
-  const handleSeedMock = async () => {
+  const handleDeleteAccount = async (id: string, name: string) => {
+    if (!window.confirm(`Bạn có chắc muốn xóa tài khoản "${name}" khỏi hệ thống không?`)) return;
     setLoading(true);
     try {
-      await ApiService.seedMockAccount();
+      await ApiService.deleteAccount(id);
       onRefresh();
     } catch (err: any) {
-      alert(`Lỗi khi khởi tạo mock: ${err.message}`);
+      alert(`Lỗi khi xóa tài khoản: ${err.response?.data?.error || err.message}`);
     } finally {
       setLoading(false);
     }
@@ -92,17 +99,10 @@ export const AccountsView: React.FC<Props> = ({
             Quản Lý Tài Khoản Quảng Cáo Meta
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Kết nối thông qua cơ chế Access Token chính thức của Meta. Tuyệt đối không yêu cầu mật khẩu Facebook.
+            Kết nối trực tiếp thông qua Access Token chính thức của Meta. Tuyệt đối không yêu cầu mật khẩu Facebook.
           </p>
         </div>
         <div className="flex items-center space-x-3">
-          <button
-            onClick={handleSeedMock}
-            disabled={loading}
-            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold rounded-xl flex items-center space-x-2 transition-all cursor-pointer"
-          >
-            <span>Tạo Dữ Liệu Demo Mock</span>
-          </button>
           <button
             onClick={() => setShowConnectModal(true)}
             className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-blue-600/20 flex items-center space-x-2 transition-all cursor-pointer"
@@ -124,9 +124,30 @@ export const AccountsView: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Account Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {accounts.map((acc) => {
+      {/* Account Cards or Empty State */}
+      {displayAccounts.length === 0 ? (
+        <div className="bg-slate-900/40 border border-slate-800/80 rounded-3xl p-12 text-center flex flex-col items-center justify-center space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shadow-xl shadow-blue-500/5">
+            <Facebook className="w-8 h-8" />
+          </div>
+          <div className="space-y-1.5 max-w-md">
+            <h3 className="text-base font-bold text-white">Chưa Có Tài Khoản Quảng Cáo Nào Được Kết Nối</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Hệ thống đang ở trạng thái sạch, không dùng dữ liệu mẫu. Để bắt đầu giám sát chiến dịch và bật chế độ tự động canh ads, vui lòng kết nối tài khoản Meta Marketing API thật.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowConnectModal(true)}
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-blue-600/25 flex items-center space-x-2 transition-all cursor-pointer mt-2"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Kết Nối Tài Khoản Thật (Live)</span>
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {displayAccounts.map((acc) => {
+
           const isSelected = selectedAccount?.id === acc.id;
           const scopes = acc.connectedAccount?.scopes ? acc.connectedAccount.scopes.split(',') : [];
           const hasAdsManagement = scopes.some((s) => s.includes('ads_management'));
@@ -216,7 +237,16 @@ export const AccountsView: React.FC<Props> = ({
                 >
                   <RefreshCw className="w-4 h-4" />
                 </button>
+                <button
+                  onClick={() => handleDeleteAccount(acc.id, acc.name)}
+                  title="Xóa tài khoản này"
+                  disabled={loading}
+                  className="p-1.5 bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 rounded-lg border border-slate-700 hover:border-rose-800/60 transition-all cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
+
             </div>
           );
         })}

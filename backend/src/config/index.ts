@@ -15,5 +15,6 @@ export const config = {
   defaultUserEmail: process.env.DEFAULT_USER_EMAIL || 'admin@autoadscare.io',
   schedulerCron: process.env.SCHEDULER_CRON || '*/1 * * * *',
   emergencyStop: process.env.EMERGENCY_STOP === 'true',
-  enableMockFallback: process.env.ENABLE_MOCK_FALLBACK !== 'false',
+  enableMockFallback: process.env.ENABLE_MOCK_FALLBACK === 'true',
 };
+

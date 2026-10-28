@@ -39,8 +39,9 @@ export const DashboardView: React.FC<Props> = ({ summary, onNavigateTab, currenc
         <div className="text-center space-y-1">
           <p className="text-base font-semibold text-white">Chưa có dữ liệu chiến dịch</p>
           <p className="text-xs text-slate-500 max-w-sm">
-            Vui lòng vào tab "Tài Khoản Ads" để kết nối tài khoản Facebook Ads hoặc tạo dữ liệu demo để trải nghiệm.
+            Vui lòng vào tab "Tài Khoản Ads" để kết nối tài khoản Facebook Ads qua Access Token.
           </p>
+
         </div>
         <button
           onClick={() => onNavigateTab('accounts')}

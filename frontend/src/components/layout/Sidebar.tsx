@@ -31,7 +31,8 @@ interface Props {
   activeTab: NavTab;
   onSelectTab: (tab: NavTab) => void;
   rulesCount: number;
-  isMockMode: boolean;
+  hasAccount?: boolean;
+  isMockMode?: boolean;
   currentUser?: User | null;
   onOpenLogin?: () => void;
   onLogout?: () => void;
@@ -41,11 +42,12 @@ export const Sidebar: React.FC<Props> = ({
   activeTab,
   onSelectTab,
   rulesCount,
-  isMockMode,
+  hasAccount = false,
   currentUser,
   onOpenLogin,
   onLogout,
 }) => {
+
   const isAdmin = currentUser?.role === 'ADMIN';
 
   const navItems: Array<{ id: NavTab; label: string; icon: React.ReactNode; badge?: string | number }> = [
@@ -118,24 +120,25 @@ export const Sidebar: React.FC<Props> = ({
       <div className="px-4 py-3 border-b border-slate-800/50">
         <div
           className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold ${
-            isMockMode
-              ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20'
-              : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
+            hasAccount
+              ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
+              : 'bg-slate-800/60 text-slate-400 border border-slate-700/60'
           }`}
         >
           <div className="flex items-center space-x-2">
             <span
               className={`w-2 h-2 rounded-full ${
-                isMockMode ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'
+                hasAccount ? 'bg-emerald-400' : 'bg-slate-500'
               }`}
             />
-            <span>{isMockMode ? 'Mock Mode (Demo)' : 'Live Meta API'}</span>
+            <span>{hasAccount ? 'Live Meta API' : 'Chưa kết nối Ads'}</span>
           </div>
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
-            {isMockMode ? 'MOCK' : 'LIVE'}
+            {hasAccount ? 'LIVE' : 'SẴN SÀNG'}
           </span>
         </div>
       </div>
+
 
       {/* Nav List */}
       <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto">

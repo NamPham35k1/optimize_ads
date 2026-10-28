@@ -102,10 +102,16 @@ export const ApiService = {
     return res.data;
   },
 
-  async seedMockAccount() {
-    const res = await api.post('/accounts/seed-mock');
+  async deleteAccount(id: string) {
+    const res = await api.delete(`/accounts/${id}`);
     return res.data;
   },
+
+  async purgeMock() {
+    const res = await api.post('/accounts/purge-mock');
+    return res.data;
+  },
+
 
   // Campaigns Hierarchy
   async getHierarchy(adAccountId?: string): Promise<CampaignSnapshot[]> {

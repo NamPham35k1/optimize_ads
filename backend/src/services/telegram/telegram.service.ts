@@ -223,13 +223,16 @@ export class TelegramService {
   /**
    * Build and send periodic status report (e.g. every 5 mins)
    */
-  public static async sendPeriodicReport(): Promise<boolean> {
-    try {
       const adAccount = await prisma.adAccount.findFirst({
-        where: { isMonitored: true },
+        where: {
+          isMonitored: true,
+          isMock: false,
+          NOT: { name: { contains: '[MOCK]' } },
+        },
       });
 
       if (!adAccount) return false;
+
 
       // Calculate totals for TODAY
       const metrics = await prisma.performanceMetric.findMany({
@@ -541,8 +544,12 @@ export class TelegramService {
             `<i>Mỗi khi bot tự động tắt ads, nút bấm 🔴 Tắt hoặc 🟢 Bật lại sẽ hiển thị ngay dưới tin nhắn để bạn bấm trực tiếp trên điện thoại!</i>`;
           await this.sendMessage(helpMsg);
         } else if (text === '/status') {
-          await this.sendPeriodicReport();
+          const sent = await this.sendPeriodicReport();
+          if (!sent) {
+            await this.sendMessage('⚠️ <b>Chưa có tài khoản Facebook Ads nào được kết nối!</b>\nVui lòng vào giao diện Auto Ads Care trên web và bấm "+ Kết Nối Tài Khoản Thật (Live)".');
+          }
         } else if (text === '/stop5m') {
+
           await this.updateConfig({ periodicEnabled: false });
           await this.sendMessage(`🔕 <b>Đã tắt thông báo định kỳ 5 phút!</b>\nBot sẽ chỉ nhắn tin khi có nhóm ads vi phạm hoặc bị tắt.`);
         } else if (text === '/start5m') {

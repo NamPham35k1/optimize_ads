@@ -40,15 +40,31 @@ async function bootstrap() {
       },
     });
 
-    // 3. Seed mock account if no accounts exist and mock fallback is enabled
-    if (config.enableMockFallback) {
-      const existingAccount = await prisma.adAccount.findFirst();
-      if (!existingAccount) {
-        console.log('[Bootstrap] No accounts found. Initializing Realistic Mock Mode with Demo Campaigns...');
-        await AccountSyncService.seedMockAccountIfNeeded(adminUser.id);
-        console.log('[Bootstrap] Mock Mode initialized successfully.');
-      }
+    // 3. Clean up any leftover mock accounts from previous demo runs
+    try {
+      await prisma.adAccount.deleteMany({
+        where: {
+          OR: [
+            { isMock: true },
+            { facebookAdAccountId: { contains: 'mock' } },
+            { name: { contains: '[MOCK]' } },
+          ],
+        },
+      });
+      await prisma.connectedAccount.deleteMany({
+        where: {
+          OR: [
+            { isMock: true },
+            { accountName: { contains: 'Demo' } },
+            { accountName: { contains: '[MOCK]' } },
+          ],
+        },
+      });
+      console.log('[Bootstrap] Cleaned up demo mock data. Pure live mode ready.');
+    } catch (cleanErr: any) {
+      console.warn('[Bootstrap] Clean mock skipped:', cleanErr.message);
     }
+
 
     // 4. Start the background scheduler
     CareScheduler.start();

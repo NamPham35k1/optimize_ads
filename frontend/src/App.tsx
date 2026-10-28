@@ -77,7 +77,16 @@ export const App: React.FC = () => {
         ApiService.getMe().catch(() => null),
       ]);
 
-      const safeAccounts = Array.isArray(accList) ? accList : [];
+      const rawAccounts = Array.isArray(accList) ? accList : [];
+      const hasMock = rawAccounts.some((a) => a.isMock || a.name.includes('[MOCK]'));
+      if (hasMock) {
+        // Silently purge mock data from backend in background
+        ApiService.purgeMock().catch(() => {});
+      }
+
+      const safeAccounts = rawAccounts.filter(
+        (acc) => !acc.isMock && !acc.name.includes('[MOCK]') && !acc.facebookAdAccountId.includes('mock')
+      );
       setAccounts(safeAccounts);
       setSystemStatus(status);
       setNotifications(notifs?.notifications || []);
@@ -97,12 +106,15 @@ export const App: React.FC = () => {
         }, 3500);
       }
 
-      // Default to first account or keep selected
+      // Default to first account or keep selected if still valid
       let currentAcc = selectedAccount;
+      if (currentAcc && !safeAccounts.some((a) => a.id === currentAcc?.id)) {
+        currentAcc = null;
+      }
       if (!currentAcc && safeAccounts.length > 0) {
         currentAcc = safeAccounts[0];
-        setSelectedAccount(currentAcc);
       }
+      setSelectedAccount(currentAcc);
 
       if (currentAcc) {
         const [hier, rls, acts, sum, pStats] = await Promise.all([
@@ -117,7 +129,14 @@ export const App: React.FC = () => {
         setActions(Array.isArray(acts) ? acts : []);
         setSummary(sum);
         setPancakeStats(pStats);
+      } else {
+        setCampaigns([]);
+        setRules([]);
+        setActions([]);
+        setSummary(null);
+        setPancakeStats(null);
       }
+
     } catch (err: any) {
       console.error('Error loading data:', err);
       setBackendError('Không thể kết nối Backend API.');
@@ -234,7 +253,7 @@ export const App: React.FC = () => {
     }
   };
 
-  const isMockMode = selectedAccount ? selectedAccount.isMock : true;
+  const hasAccount = accounts.length > 0;
   const currency = selectedAccount?.currency || 'VND';
 
   return (
@@ -261,9 +280,10 @@ export const App: React.FC = () => {
           activeTab={activeTab}
           onSelectTab={setActiveTab}
           rulesCount={rules.length}
-          isMockMode={isMockMode}
+          hasAccount={hasAccount}
           currentUser={currentUser}
           onOpenLogin={() => setIsLoginOpen(true)}
+
           onLogout={handleLogout}
         />
 

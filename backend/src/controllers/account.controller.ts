@@ -21,13 +21,19 @@ export class AccountController {
         }
       }
 
-      const whereClause: any = {};
+      const whereClause: any = {
+        isMock: false,
+        NOT: {
+          name: { contains: '[MOCK]' },
+        },
+      };
       // If user is a sub-account, only return accounts assigned to them
       if (userRole === 'SUB_ACCOUNT' && userId) {
         whereClause.userAssignments = {
           some: { userId },
         };
       }
+
 
       const accounts = await prisma.adAccount.findMany({
         where: whereClause,
@@ -184,21 +190,54 @@ export class AccountController {
     }
   }
 
-  public static async seedMock(req: Request, res: Response): Promise<void> {
+  public static async deleteAccount(req: Request, res: Response): Promise<void> {
     try {
-      let user = await prisma.user.findFirst();
-      if (!user) {
-        user = await prisma.user.create({
-          data: {
-            email: 'admin@autoadscare.io',
-            name: 'Auto Ads Admin',
-          },
-        });
+      const id = String(req.params.id);
+      const account = await prisma.adAccount.findUnique({ where: { id } });
+      if (!account) {
+        res.status(404).json({ success: false, error: 'Không tìm thấy tài khoản quảng cáo' });
+        return;
       }
-      const accId = await AccountSyncService.seedMockAccountIfNeeded(user.id);
-      res.json({ success: true, message: 'Đã khởi tạo tài khoản Mock Demo', adAccountId: accId });
+
+      const connectedId = account.connectedAccountId;
+      await prisma.adAccount.delete({ where: { id } });
+
+      // Clean up connectedAccount if no ad accounts left
+      const remaining = await prisma.adAccount.count({ where: { connectedAccountId: connectedId } });
+      if (remaining === 0) {
+        await prisma.connectedAccount.delete({ where: { id: connectedId } }).catch(() => {});
+      }
+
+      res.json({ success: true, message: 'Đã xóa tài khoản quảng cáo thành công' });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  public static async purgeMock(req: Request, res: Response): Promise<void> {
+    try {
+      await prisma.adAccount.deleteMany({
+        where: {
+          OR: [
+            { isMock: true },
+            { facebookAdAccountId: { contains: 'mock' } },
+            { name: { contains: '[MOCK]' } },
+          ],
+        },
+      });
+      await prisma.connectedAccount.deleteMany({
+        where: {
+          OR: [
+            { isMock: true },
+            { accountName: { contains: 'Demo' } },
+            { accountName: { contains: '[MOCK]' } },
+          ],
+        },
+      });
+      res.json({ success: true, message: 'Đã xóa sạch toàn bộ dữ liệu mẫu' });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
   }
 }
+
