@@ -39,6 +39,7 @@ router.post('/pancake/seed-mock', PancakeController.seedMockOrders);
 
 // Campaigns & Hierarchy API
 router.get('/campaigns/hierarchy', CampaignController.getHierarchy);
+router.post('/campaigns/toggle-status', CampaignController.toggleStatus);
 
 // Care Rules API
 router.get('/rules', RuleController.getRules);
@@ -63,5 +64,12 @@ router.get('/system/status', SystemController.getSystemStatus);
 router.post('/system/emergency-stop', SystemController.toggleEmergencyStop);
 router.post('/system/trigger-scheduler', SystemController.triggerScheduler);
 router.get('/dashboard/summary', SystemController.getDashboardSummary);
+
+// Telegram Mobile Alert & Remote Control API
+import { TelegramController } from '../controllers/telegram.controller.js';
+router.get('/telegram/config', TelegramController.getConfig);
+router.post('/telegram/config', TelegramController.updateConfig);
+router.post('/telegram/test', TelegramController.testConnection);
+router.post('/telegram/report-now', TelegramController.sendReportNow);
 
 export default router;

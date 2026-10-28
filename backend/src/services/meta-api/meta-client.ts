@@ -74,6 +74,12 @@ export interface IMetaClient {
     level: 'campaign' | 'adset' | 'ad',
     accessToken: string
   ): Promise<{ success: boolean; effectiveStatus: string; apiResponse: any }>;
+  updateEntityStatus(
+    entityId: string,
+    level: 'campaign' | 'adset' | 'ad',
+    status: 'ACTIVE' | 'PAUSED',
+    accessToken: string
+  ): Promise<{ success: boolean; effectiveStatus: string; apiResponse: any }>;
 }
 
 export class MetaMarketingApiClient implements IMetaClient {
@@ -264,6 +270,40 @@ export class MetaMarketingApiClient implements IMetaClient {
   }
 
   /**
+   * Update entity status (ACTIVE or PAUSED) via Graph API.
+   * Includes verification step.
+   */
+  public async updateEntityStatus(
+    entityId: string,
+    level: 'campaign' | 'adset' | 'ad',
+    status: 'ACTIVE' | 'PAUSED',
+    accessToken: string
+  ): Promise<{ success: boolean; effectiveStatus: string; apiResponse: any }> {
+    console.log(`[MetaAPI Write] Setting ${level} ID: ${entityId} to ${status} with token: ${maskToken(accessToken)}`);
+
+    const res = await this.request<any>(
+      `/${entityId}`,
+      { access_token: accessToken },
+      'POST',
+      { status }
+    );
+
+    if (res.success !== true) {
+      throw new Error(`Meta API returned unexpected response for status update: ${JSON.stringify(res)}`);
+    }
+
+    // Post-action verification
+    const verified = await this.getEntityStatus(entityId, level, accessToken);
+    const isMatched = verified.status === status || verified.effectiveStatus.includes(status);
+
+    return {
+      success: isMatched,
+      effectiveStatus: verified.effectiveStatus,
+      apiResponse: res,
+    };
+  }
+
+  /**
    * Pause Campaign, AdSet, or Ad via Graph API.
    * Includes verification step.
    */
@@ -272,27 +312,6 @@ export class MetaMarketingApiClient implements IMetaClient {
     level: 'campaign' | 'adset' | 'ad',
     accessToken: string
   ): Promise<{ success: boolean; effectiveStatus: string; apiResponse: any }> {
-    console.log(`[MetaAPI Write] Pausing ${level} ID: ${entityId} with token: ${maskToken(accessToken)}`);
-
-    const res = await this.request<any>(
-      `/${entityId}`,
-      { access_token: accessToken },
-      'POST',
-      { status: 'PAUSED' }
-    );
-
-    if (res.success !== true) {
-      throw new Error(`Meta API returned unexpected response for pause: ${JSON.stringify(res)}`);
-    }
-
-    // Post-action verification
-    const verified = await this.getEntityStatus(entityId, level, accessToken);
-    const isPaused = verified.status === 'PAUSED' || verified.effectiveStatus.includes('PAUSED');
-
-    return {
-      success: isPaused,
-      effectiveStatus: verified.effectiveStatus,
-      apiResponse: res,
-    };
+    return this.updateEntityStatus(entityId, level, 'PAUSED', accessToken);
   }
 }

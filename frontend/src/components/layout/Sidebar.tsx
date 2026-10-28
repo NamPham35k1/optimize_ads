@@ -12,6 +12,7 @@ import {
   Users,
   LogIn,
   LogOut,
+  Send,
 } from 'lucide-react';
 import { User } from '../../types';
 
@@ -23,6 +24,7 @@ export type NavTab =
   | 'simulator'
   | 'logs'
   | 'pancake'
+  | 'telegram'
   | 'users';
 
 interface Props {
@@ -62,12 +64,15 @@ export const Sidebar: React.FC<Props> = ({
       label: 'Chiến Dịch & Nhóm Ads',
       icon: <Layers className="w-5 h-5" />,
     },
+    // Đã ẩn thanh tính năng POS Pancake & Lãi/Lỗ theo yêu cầu
+    /*
     {
       id: 'pancake',
       label: 'POS Pancake & Lãi/Lỗ',
       icon: <ShoppingBag className="w-5 h-5 text-indigo-400" />,
       badge: 'Mới',
     },
+    */
     {
       id: 'rules',
       label: 'Trung Tâm Quy Tắc (Rules)',
@@ -85,16 +90,13 @@ export const Sidebar: React.FC<Props> = ({
       label: 'Nhật Ký Tự Động (Logs)',
       icon: <FileText className="w-5 h-5" />,
     },
-    ...(isAdmin
-      ? [
-          {
-            id: 'users' as NavTab,
-            label: 'Tài Khoản Con (Nhân Viên)',
-            icon: <Users className="w-5 h-5 text-blue-400" />,
-            badge: 'Admin',
-          },
-        ]
-      : []),
+    {
+      id: 'telegram',
+      label: 'Báo Điện Thoại (Telegram)',
+      icon: <Send className="w-5 h-5 text-sky-400" />,
+      badge: '5 Phút',
+    },
+    // Đã ẩn phần phân chia tài khoản (users) theo yêu cầu - Chế độ 1 người dùng trực tiếp
   ];
 
   return (
@@ -171,40 +173,17 @@ export const Sidebar: React.FC<Props> = ({
         })}
       </nav>
 
-      {/* User Account / Profile Card */}
+      {/* Single User Mode Indicator */}
       <div className="p-3 border-t border-slate-800/80 bg-slate-950/40">
-        {currentUser ? (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2.5 overflow-hidden">
-              <div className="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 font-bold text-xs shrink-0">
-                {currentUser.name.charAt(0).toUpperCase()}
-              </div>
-              <div className="truncate">
-                <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
-                <p className="text-[10px] text-slate-400 truncate">
-                  {currentUser.role === 'ADMIN' ? '👑 Quản Trị Viên' : '👤 Tài Khoản Con'}
-                </p>
-              </div>
-            </div>
-            {onLogout && (
-              <button
-                onClick={onLogout}
-                className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-rose-400 rounded-lg transition-colors cursor-pointer"
-                title="Đăng xuất"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-              </button>
-            )}
+        <div className="flex items-center justify-between px-2.5 py-2 rounded-xl bg-slate-900/90 border border-slate-800/80">
+          <div className="flex items-center space-x-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-xs font-semibold text-slate-200">1 Người Dùng</span>
           </div>
-        ) : (
-          <button
-            onClick={onOpenLogin}
-            className="w-full py-2 px-3 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 rounded-xl text-xs font-semibold text-blue-400 flex items-center justify-center space-x-1.5 cursor-pointer"
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            <span>Đăng Nhập Tài Khoản</span>
-          </button>
-        )}
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-bold">
+            Trực tiếp
+          </span>
+        </div>
       </div>
 
       {/* Bottom Status Card */}

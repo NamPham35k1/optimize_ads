@@ -340,37 +340,46 @@ export class MockMetaMarketingApiClient implements IMetaClient {
     }
   }
 
-  public async pauseEntity(
+  public async updateEntityStatus(
     entityId: string,
     level: 'campaign' | 'adset' | 'ad',
-    accessToken: string
+    status: 'ACTIVE' | 'PAUSED',
+    accessToken?: string
   ): Promise<{ success: boolean; effectiveStatus: string; apiResponse: any }> {
-    console.log(`[MOCK MetaAPI] Paused ${level} ID: ${entityId}`);
+    console.log(`[MOCK MetaAPI] Updated ${level} ID: ${entityId} to ${status}`);
 
     if (level === 'campaign') {
       const c = this.campaigns.find((item) => item.id === entityId);
       if (c) {
-        c.status = 'PAUSED';
-        c.effective_status = 'PAUSED';
+        c.status = status;
+        c.effective_status = status;
       }
     } else if (level === 'adset') {
       const s = this.adSets.find((item) => item.id === entityId);
       if (s) {
-        s.status = 'PAUSED';
-        s.effective_status = 'PAUSED';
+        s.status = status;
+        s.effective_status = status;
       }
     } else if (level === 'ad') {
       const a = this.ads.find((item) => item.id === entityId);
       if (a) {
-        a.status = 'PAUSED';
-        a.effective_status = 'PAUSED';
+        a.status = status;
+        a.effective_status = status;
       }
     }
 
     return {
       success: true,
-      effectiveStatus: 'PAUSED',
+      effectiveStatus: status,
       apiResponse: { success: true, mock: true, timestamp: new Date().toISOString() },
     };
+  }
+
+  public async pauseEntity(
+    entityId: string,
+    level: 'campaign' | 'adset' | 'ad',
+    accessToken: string
+  ): Promise<{ success: boolean; effectiveStatus: string; apiResponse: any }> {
+    return this.updateEntityStatus(entityId, level, 'PAUSED', accessToken);
   }
 }

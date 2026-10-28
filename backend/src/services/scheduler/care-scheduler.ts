@@ -1,6 +1,7 @@
 import cron, { ScheduledTask } from 'node-cron';
 import prisma from '../../db.js';
 import { RuleEvaluator } from '../rule-engine/rule-evaluator.js';
+import { TelegramService } from '../telegram/telegram.service.js';
 import { config } from '../../config/index.js';
 
 export class CareScheduler {
@@ -18,6 +19,15 @@ export class CareScheduler {
 
     const cronPattern = config.schedulerCron;
     console.log(`[CareScheduler] Starting scheduler with pattern: "${cronPattern}"`);
+
+    // Start Telegram mobile listener if configured
+    TelegramService.getConfig()
+      .then((cfg) => {
+        if (cfg.isEnabled && cfg.botToken) {
+          TelegramService.startPolling();
+        }
+      })
+      .catch(() => {});
 
     this.task = cron.schedule(cronPattern, async () => {
       await this.runCycle();
@@ -76,6 +86,11 @@ export class CareScheduler {
           errors.push(`Rule ${rule.id} failed: ${ruleErr.message}`);
         }
       }
+
+      // Step 2: Check and trigger Telegram periodic report (e.g. every 5 mins)
+      await TelegramService.checkPeriodicReport().catch((tErr) =>
+        console.error('[CareScheduler Telegram Periodic Error]:', tErr.message)
+      );
     } catch (cycleErr: any) {
       console.error('[CareScheduler Error] Critical error during scheduler cycle:', cycleErr.message);
       errors.push(`Cycle error: ${cycleErr.message}`);

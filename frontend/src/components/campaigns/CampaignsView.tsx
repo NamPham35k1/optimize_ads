@@ -11,24 +11,70 @@ import {
   CheckCircle,
   Pause,
   Play,
+  RefreshCw,
 } from 'lucide-react';
-import { CampaignSnapshot, AdSetSnapshot, AdSnapshot, CareRule, PancakeFinancialStats } from '../../types';
+import { CampaignSnapshot, AdSetSnapshot, AdSnapshot, CareRule, PancakeFinancialStats, AdAccount } from '../../types';
+import { ApiService } from '../../services/api';
 
 interface Props {
   campaigns: CampaignSnapshot[];
   currency: string;
   rules?: CareRule[];
   pancakeStats?: PancakeFinancialStats | null;
+  selectedAccount?: AdAccount | null;
   onRefresh: () => void;
 }
 
-export const CampaignsView: React.FC<Props> = ({ campaigns, currency = 'VND', rules = [], pancakeStats }) => {
+export const CampaignsView: React.FC<Props> = ({
+  campaigns,
+  currency = 'VND',
+  rules = [],
+  pancakeStats,
+  selectedAccount,
+  onRefresh,
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [expandedCampaigns, setExpandedCampaigns] = useState<Record<string, boolean>>({});
   const [expandedAdSets, setExpandedAdSets] = useState<Record<string, boolean>>({});
   const [sortField, setSortField] = useState<'spend' | 'costPerMessaging' | 'messagingConversations'>('spend');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  const handleToggleStatus = async (
+    entityId: string,
+    entityType: 'campaign' | 'adset' | 'ad',
+    currentStatus: string,
+    entityName: string
+  ) => {
+    const targetStatus = currentStatus === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+    const actionLabel = targetStatus === 'PAUSED' ? 'TẠM DỪNG (TẮT)' : 'BẬT LẠI';
+    const typeLabel = entityType === 'campaign' ? 'Chiến dịch' : entityType === 'adset' ? 'Nhóm Ads' : 'Quảng cáo';
+
+    const ok = window.confirm(`Bạn có chắc muốn ${actionLabel} ${typeLabel}: "${entityName}" trực tiếp trên Facebook không?`);
+    if (!ok) return;
+
+    const accId = selectedAccount?.id;
+    if (!accId) {
+      alert('Không tìm thấy tài khoản quảng cáo. Vui lòng chọn tài khoản ở góc trên.');
+      return;
+    }
+
+    setTogglingId(entityId);
+    try {
+      await ApiService.toggleEntityStatus({
+        adAccountId: accId,
+        entityId,
+        entityType,
+        status: targetStatus,
+      });
+      onRefresh();
+    } catch (err: any) {
+      alert(`Lỗi khi chuyển trạng thái: ${err.response?.data?.error || err.message}`);
+    } finally {
+      setTogglingId(null);
+    }
+  };
 
   const toggleCampaign = (id: string) => {
     setExpandedCampaigns((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -258,7 +304,33 @@ export const CampaignsView: React.FC<Props> = ({ campaigns, currency = 'VND', ru
                           )}
                         </td>
                         <td className="py-3 px-3">
-                          {getStatusBadge(camp.status, camp.isPausedBySystem)}
+                          <div className="flex items-center space-x-2">
+                            {getStatusBadge(camp.status, camp.isPausedBySystem)}
+                            <button
+                              onClick={() => handleToggleStatus(camp.fbCampaignId, 'campaign', camp.status, camp.name)}
+                              disabled={togglingId === camp.fbCampaignId}
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                                camp.status === 'ACTIVE'
+                                  ? 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30'
+                                  : 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30'
+                              }`}
+                              title={camp.status === 'ACTIVE' ? 'Tắt chiến dịch này trực tiếp' : 'Bật lại chiến dịch này trực tiếp'}
+                            >
+                              {togglingId === camp.fbCampaignId ? (
+                                <RefreshCw className="w-2.5 h-2.5 animate-spin" />
+                              ) : camp.status === 'ACTIVE' ? (
+                                <>
+                                  <Pause className="w-2.5 h-2.5" />
+                                  <span>Tắt</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="w-2.5 h-2.5" />
+                                  <span>Bật</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
                         </td>
                         <td className="py-3 px-3 text-right font-bold text-white">
                           {formatMoney(m.spend)}
@@ -324,7 +396,33 @@ export const CampaignsView: React.FC<Props> = ({ campaigns, currency = 'VND', ru
                                   </div>
                                 </td>
                                 <td className="py-2.5 px-3">
-                                  {getStatusBadge(adSet.status, adSet.isPausedBySystem)}
+                                  <div className="flex items-center space-x-2">
+                                    {getStatusBadge(adSet.status, adSet.isPausedBySystem)}
+                                    <button
+                                      onClick={() => handleToggleStatus(adSet.fbAdSetId, 'adset', adSet.status, adSet.name)}
+                                      disabled={togglingId === adSet.fbAdSetId}
+                                      className={`px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                                        adSet.status === 'ACTIVE'
+                                          ? 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30'
+                                          : 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30'
+                                      }`}
+                                      title={adSet.status === 'ACTIVE' ? 'Tắt nhóm ads này trực tiếp' : 'Bật lại nhóm ads này trực tiếp'}
+                                    >
+                                      {togglingId === adSet.fbAdSetId ? (
+                                        <RefreshCw className="w-2.5 h-2.5 animate-spin" />
+                                      ) : adSet.status === 'ACTIVE' ? (
+                                        <>
+                                          <Pause className="w-2.5 h-2.5" />
+                                          <span>Tắt</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Play className="w-2.5 h-2.5" />
+                                          <span>Bật</span>
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
                                 </td>
                                 <td className="py-2.5 px-3 text-right font-medium text-slate-200">
                                   {formatMoney(setM.spend)}
@@ -386,7 +484,33 @@ export const CampaignsView: React.FC<Props> = ({ campaigns, currency = 'VND', ru
                                         </div>
                                       </td>
                                       <td className="py-2 px-3">
-                                        {getStatusBadge(ad.status, ad.isPausedBySystem)}
+                                        <div className="flex items-center space-x-2">
+                                          {getStatusBadge(ad.status, ad.isPausedBySystem)}
+                                          <button
+                                            onClick={() => handleToggleStatus(ad.fbAdId, 'ad', ad.status, ad.name)}
+                                            disabled={togglingId === ad.fbAdId}
+                                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                                              ad.status === 'ACTIVE'
+                                                ? 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30'
+                                                : 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30'
+                                            }`}
+                                            title={ad.status === 'ACTIVE' ? 'Tắt quảng cáo này trực tiếp' : 'Bật lại quảng cáo này trực tiếp'}
+                                          >
+                                            {togglingId === ad.fbAdId ? (
+                                              <RefreshCw className="w-2 h-2 animate-spin" />
+                                            ) : ad.status === 'ACTIVE' ? (
+                                              <>
+                                                <Pause className="w-2 h-2" />
+                                                <span>Tắt</span>
+                                              </>
+                                            ) : (
+                                              <>
+                                                <Play className="w-2 h-2" />
+                                                <span>Bật</span>
+                                              </>
+                                            )}
+                                          </button>
+                                        </div>
                                       </td>
                                       <td className="py-2 px-3 text-right text-slate-300">
                                         {formatMoney(adM.spend)}

@@ -63,6 +63,7 @@ export interface AdSetSnapshot {
 
 export interface CampaignSnapshot {
   id: string;
+  adAccountId?: string;
   fbCampaignId: string;
   name: string;
   objective: string;

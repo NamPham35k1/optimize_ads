@@ -72,7 +72,7 @@
 ### 3. Chiến Dịch & Nhóm Ads (Hierarchy)
 - Quản lý theo cấu trúc cây 3 tầng chuẩn mực: **Campaign (Chiến Dịch) ➔ Ad Set (Nhóm Ads) ➔ Ad (Quảng Cáo)**.
 - Xem chi tiết: Tên, ID, Trạng thái (Đang chạy / Tạm dừng), Ngân sách hàng ngày, Số tiền đã tiêu, Số tin nhắn, Giá mỗi tin nhắn.
-- Nút bật/tắt thủ công nhanh bằng tay cho từng đối tượng.
+- **Tắt / Bật trực tiếp ngay trên tool**: Tại cột **Trạng Thái**, có sẵn nút **"Tắt"** (màu đỏ) hoặc **"Bật"** (màu xanh). Khi bạn bấm vào, tool sẽ gửi lệnh trực tiếp lên Facebook để đổi trạng thái ngay mà không cần mở Trình quản lý quảng cáo (Ads Manager).
 
 ### 4. POS Pancake & Đánh Giá Lãi/Lỗ
 - Kết nối thông qua API Token của Pancake.vn.
@@ -99,9 +99,19 @@
   - Kết quả: `Vi phạm lần 2/2 -> ĐÃ TẠM DỪNG (PAUSED)`.
 - Minh bạch 100%, có thể tra cứu và đối soát bất cứ lúc nào.
 
-### 8. Quản Lý Nhân Viên & Phân Quyền (Users)
-- Quản trị viên (Admin) tạo tài khoản nhân viên (Staff).
-- Mỗi nhân viên chỉ được xem và tối ưu **đúng các tài khoản quảng cáo được Admin phân công**, tránh lộ dữ liệu kinh doanh giữa các team.
+### 8. Thông Báo Telegram & Điều Khiển Điện Thoại (Telegram Mobile Control)
+- **Cảnh báo tức thì**: Nhận tin nhắn Telegram ngay khi có chiến dịch/nhóm ads bị tắt do vi phạm quy tắc.
+- **Báo cáo định kỳ 5 phút**: Tự động gửi tổng kết chi tiêu hôm nay, số tin nhắn, CPA trung bình về điện thoại mỗi 5 phút (có thể tắt hoặc chỉnh thành 15p, 30p, 60p).
+- **Tắt / Bật Camp trực tiếp từ điện thoại**: Dưới mỗi tin nhắn cảnh báo có sẵn nút bấm `[🟢 Bật lại đối tượng]` và `[🛑 Dừng khẩn cấp]`.
+- **Lệnh điều khiển từ xa**:
+  - `/status`: Xem báo cáo chi tiêu và CPA tức thì.
+  - `/stop5m`: Tắt thông báo 5 phút (khi muốn yên tĩnh).
+  - `/start5m`: Bật lại thông báo 5 phút.
+  - `/emergency`: Bật/Tắt chế độ dừng khẩn cấp bot.
+
+### 9. Chế Độ Đơn Người Dùng (Single User Direct Mode)
+- Đã tinh giản và ẩn hoàn toàn phần phân chia quyền nhân viên/tài khoản con.
+- Tool hoạt động ở chế độ trực tiếp: 1 người dùng duy nhất, chỉ cần kết nối tài khoản Ads và bắt đầu thiết lập quy tắc canh camp mà không cần đăng nhập hay phân quyền phức tạp.
 
 ---
 

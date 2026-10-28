@@ -1,5 +1,6 @@
 import prisma from '../../db.js';
 import { MetaService } from '../meta-api/meta-service.js';
+import { TelegramService } from '../telegram/telegram.service.js';
 import { config } from '../../config/index.js';
 
 export interface ActionPayload {
@@ -96,6 +97,16 @@ export class ActionExecutor {
         },
       });
 
+      // Send alert to Telegram (fire-and-forget)
+      TelegramService.sendPauseAlert({
+        entityType,
+        entityName,
+        entityId,
+        reason,
+        adAccountId,
+        isDryRun: true,
+      }).catch(() => {});
+
       return {
         success: true,
         actionTaken: 'DRY_RUN',
@@ -174,6 +185,16 @@ export class ActionExecutor {
           severity: 'CRITICAL',
         },
       });
+
+      // Send live alert to Telegram with quick buttons (fire-and-forget)
+      TelegramService.sendPauseAlert({
+        entityType,
+        entityName,
+        entityId,
+        reason,
+        adAccountId,
+        isDryRun: false,
+      }).catch(() => {});
 
       return {
         success: true,

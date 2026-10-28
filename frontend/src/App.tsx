@@ -11,8 +11,7 @@ import { RuleBuilderView } from './components/rules/RuleBuilderView';
 import { SimulatorView } from './components/simulator/SimulatorView';
 import { LogsView } from './components/logs/LogsView';
 import { PancakeView } from './components/pancake/PancakeView';
-import { UsersView } from './components/users/UsersView';
-import { LoginModal } from './components/auth/LoginModal';
+import { TelegramView } from './components/telegram/TelegramView';
 import { NotificationsModal } from './components/notifications/NotificationsModal';
 import { ApiService } from './services/api';
 import {
@@ -309,6 +308,7 @@ export const App: React.FC = () => {
                 currency={currency}
                 rules={rules}
                 pancakeStats={pancakeStats}
+                selectedAccount={selectedAccount}
                 onRefresh={loadData}
               />
             )}
@@ -347,11 +347,8 @@ export const App: React.FC = () => {
               />
             )}
 
-            {activeTab === 'users' && (
-              <UsersView
-                accounts={accounts}
-                currentUser={currentUser}
-              />
+            {activeTab === 'telegram' && (
+              <TelegramView />
             )}
           </main>
         </div>
@@ -363,16 +360,6 @@ export const App: React.FC = () => {
         onClose={() => setIsNotificationsOpen(false)}
         notifications={notifications}
         onMarkRead={handleMarkNotificationRead}
-      />
-
-      {/* Login Modal for Sub-accounts and Admin */}
-      <LoginModal
-        isOpen={isLoginOpen}
-        onClose={() => setIsLoginOpen(false)}
-        onLoginSuccess={(u) => {
-          setCurrentUser(u);
-          loadData();
-        }}
       />
     </div>
   );

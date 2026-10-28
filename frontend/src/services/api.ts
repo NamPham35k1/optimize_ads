@@ -115,6 +115,16 @@ export const ApiService = {
     return res.data.data;
   },
 
+  async toggleEntityStatus(payload: {
+    adAccountId: string;
+    entityId: string;
+    entityType: 'campaign' | 'adset' | 'ad';
+    status: 'ACTIVE' | 'PAUSED';
+  }): Promise<any> {
+    const res = await api.post('/campaigns/toggle-status', payload);
+    return res.data;
+  },
+
   // Rules
   async getRules(adAccountId?: string): Promise<CareRule[]> {
     const res = await api.get('/rules', {
@@ -201,6 +211,40 @@ export const ApiService = {
 
   async triggerScheduler() {
     const res = await api.post('/system/trigger-scheduler');
+    return res.data;
+  },
+
+  // Telegram Mobile Alert & Remote Control
+  async getTelegramConfig(): Promise<{
+    botToken: string;
+    chatId: string;
+    isEnabled: boolean;
+    periodicEnabled: boolean;
+    periodicIntervalMinutes: number;
+    maskedToken: string;
+  }> {
+    const res = await api.get('/telegram/config');
+    return res.data.data;
+  },
+
+  async updateTelegramConfig(data: {
+    botToken?: string;
+    chatId?: string;
+    isEnabled?: boolean;
+    periodicEnabled?: boolean;
+    periodicIntervalMinutes?: number;
+  }) {
+    const res = await api.post('/telegram/config', data);
+    return res.data;
+  },
+
+  async testTelegram(data: { botToken?: string; chatId?: string }) {
+    const res = await api.post('/telegram/test', data);
+    return res.data;
+  },
+
+  async sendTelegramReportNow() {
+    const res = await api.post('/telegram/report-now');
     return res.data;
   },
 
