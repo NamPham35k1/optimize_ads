@@ -84,10 +84,16 @@ export const App: React.FC = () => {
         ApiService.purgeMock().catch(() => {});
       }
 
-      const safeAccounts = rawAccounts.filter(
-        (acc) => !acc.isMock && !acc.name.includes('[MOCK]') && !acc.facebookAdAccountId.includes('mock')
-      );
+      const safeAccounts = rawAccounts.filter((acc) => {
+        if (acc.isMock) return false;
+        const nameLower = (acc.name || '').toLowerCase();
+        if (nameLower.includes('mock') || nameLower.includes('demo account')) return false;
+        const idLower = (acc.facebookAdAccountId || '').toLowerCase();
+        if (idLower.includes('mock')) return false;
+        return true;
+      });
       setAccounts(safeAccounts);
+
       setSystemStatus(status);
       setNotifications(notifs?.notifications || []);
       setUnreadCount(notifs?.unreadCount || 0);

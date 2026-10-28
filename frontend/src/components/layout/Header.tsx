@@ -53,14 +53,15 @@ export const Header: React.FC<Props> = ({
               }}
               className="appearance-none bg-slate-800 border border-slate-700 hover:border-slate-600 text-slate-100 text-sm font-semibold rounded-lg pl-3 pr-8 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
             >
-              {(accounts || []).filter((a) => !a.isMock && !a.name.includes('[MOCK]')).length === 0 && (
+              {(accounts || []).filter((a) => !a.isMock && !a.name.toLowerCase().includes('mock')).length === 0 && (
                 <option value="">Chưa kết nối tài khoản Ads</option>
               )}
-              {(accounts || []).filter((a) => !a.isMock && !a.name.includes('[MOCK]')).map((acc) => (
+              {(accounts || []).filter((a) => !a.isMock && !a.name.toLowerCase().includes('mock')).map((acc) => (
                 <option key={acc.id} value={acc.id}>
                   {acc.name} ({acc.currency})
                 </option>
               ))}
+
 
             </select>
             <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" />

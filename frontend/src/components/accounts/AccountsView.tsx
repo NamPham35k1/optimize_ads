@@ -35,9 +35,15 @@ export const AccountsView: React.FC<Props> = ({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Filter out any mock accounts - only display real connected accounts
-  const displayAccounts = accounts.filter(
-    (acc) => !acc.isMock && !acc.name.includes('[MOCK]') && !acc.facebookAdAccountId.includes('mock')
-  );
+  const displayAccounts = accounts.filter((acc) => {
+    if (acc.isMock) return false;
+    const nameLower = (acc.name || '').toLowerCase();
+    if (nameLower.includes('mock') || nameLower.includes('demo account')) return false;
+    const idLower = (acc.facebookAdAccountId || '').toLowerCase();
+    if (idLower.includes('mock')) return false;
+    return true;
+  });
+
 
   const handleConnect = async (e: React.FormEvent) => {
     e.preventDefault();
