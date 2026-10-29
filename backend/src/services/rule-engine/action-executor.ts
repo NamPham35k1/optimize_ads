@@ -124,11 +124,27 @@ export class ActionExecutor {
       const currentStatus = await client.getEntityStatus(entityId, level, accessToken);
 
       if (currentStatus.status === 'PAUSED' || currentStatus.effectiveStatus.includes('PAUSED')) {
-        console.log(`[ActionExecutor] Entity ${entityId} is ALREADY paused. Skipping redundant API write.`);
+        console.log(`[ActionExecutor] Entity ${entityId} is ALREADY paused on Meta. Syncing local snapshot to PAUSED.`);
+        if (entityType === 'CAMPAIGN') {
+          await prisma.campaignSnapshot.updateMany({
+            where: { fbCampaignId: entityId },
+            data: { status: 'PAUSED', effectiveStatus: currentStatus.effectiveStatus || 'PAUSED' },
+          });
+        } else if (entityType === 'ADSET') {
+          await prisma.adSetSnapshot.updateMany({
+            where: { fbAdSetId: entityId },
+            data: { status: 'PAUSED', effectiveStatus: currentStatus.effectiveStatus || 'PAUSED' },
+          });
+        } else if (entityType === 'AD') {
+          await prisma.adSnapshot.updateMany({
+            where: { fbAdId: entityId },
+            data: { status: 'PAUSED', effectiveStatus: currentStatus.effectiveStatus || 'PAUSED' },
+          });
+        }
         return {
           success: true,
           actionTaken: 'SKIPPED',
-          message: `${entityName} hiện đã ở trạng thái PAUSED trên Meta. Bỏ qua để tránh gọi API trùng lặp.`,
+          message: `${entityName} hiện đã ở trạng thái PAUSED trên Meta. Đã đồng bộ trạng thái về hệ thống.`,
           isVerified: true,
         };
       }

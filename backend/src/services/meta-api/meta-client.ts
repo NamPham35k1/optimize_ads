@@ -64,6 +64,12 @@ export interface IMetaClient {
     datePreset?: string,
     accessToken?: string
   ): Promise<MetaRawInsight | null>;
+  getAccountInsights(
+    adAccountId: string,
+    level: 'campaign' | 'adset' | 'ad',
+    datePreset?: string,
+    accessToken?: string
+  ): Promise<Record<string, MetaRawInsight>>;
   getEntityStatus(
     entityId: string,
     level: 'campaign' | 'adset' | 'ad',
@@ -209,7 +215,7 @@ export class MetaMarketingApiClient implements IMetaClient {
     const res = await this.request<any>(`/${formattedId}/campaigns`, {
       fields: 'id,name,objective,status,effective_status,buying_type,daily_budget,lifetime_budget',
       access_token: accessToken,
-      limit: 100,
+      limit: 500,
     });
     return res.data || [];
   }
@@ -220,7 +226,7 @@ export class MetaMarketingApiClient implements IMetaClient {
       fields:
         'id,campaign_id,name,status,effective_status,daily_budget,lifetime_budget,billing_event,optimization_goal',
       access_token: accessToken,
-      limit: 100,
+      limit: 500,
     });
     return res.data || [];
   }
@@ -230,7 +236,7 @@ export class MetaMarketingApiClient implements IMetaClient {
     const res = await this.request<any>(`/${formattedId}/ads`, {
       fields: 'id,adset_id,campaign_id,name,status,effective_status',
       access_token: accessToken,
-      limit: 100,
+      limit: 500,
     });
     return res.data || [];
   }
@@ -252,6 +258,32 @@ export class MetaMarketingApiClient implements IMetaClient {
       return res.data[0];
     }
     return null;
+  }
+
+  public async getAccountInsights(
+    adAccountId: string,
+    level: 'campaign' | 'adset' | 'ad',
+    datePreset = 'today',
+    accessToken?: string
+  ): Promise<Record<string, MetaRawInsight>> {
+    const formattedId = adAccountId.startsWith('act_') ? adAccountId : `act_${adAccountId}`;
+    const idField = level === 'campaign' ? 'campaign_id' : level === 'adset' ? 'adset_id' : 'ad_id';
+    const res = await this.request<any>(`/${formattedId}/insights`, {
+      fields: `${idField},spend,impressions,clicks,cpm,cpc,ctr,actions,cost_per_action_type`,
+      date_preset: datePreset.toLowerCase(),
+      level,
+      limit: 500,
+      access_token: accessToken,
+    });
+
+    const map: Record<string, MetaRawInsight> = {};
+    for (const row of res.data || []) {
+      const entityId = row[idField];
+      if (entityId) {
+        map[entityId] = row;
+      }
+    }
+    return map;
   }
 
   public async getEntityStatus(

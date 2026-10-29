@@ -323,6 +323,15 @@ export class MockMetaMarketingApiClient implements IMetaClient {
     return this.insights[entityId] || null;
   }
 
+  public async getAccountInsights(
+    adAccountId: string,
+    level: 'campaign' | 'adset' | 'ad',
+    datePreset = 'today',
+    accessToken?: string
+  ): Promise<Record<string, MetaRawInsight>> {
+    return { ...this.insights };
+  }
+
   public async getEntityStatus(
     entityId: string,
     level: 'campaign' | 'adset' | 'ad',

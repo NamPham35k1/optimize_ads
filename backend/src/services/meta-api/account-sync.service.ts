@@ -108,11 +108,17 @@ export class AccountSyncService {
   public static async syncAdAccount(adAccountId: string): Promise<void> {
     const { client, accessToken, fbAccountId } = await MetaService.getClientForAccount(adAccountId);
 
-    // 1. Fetch campaigns
-    const campaigns = await client.getCampaigns(fbAccountId, accessToken);
+    // 1. Fetch campaigns & bulk campaign insights
+    const [campaigns, campInsightsMap] = await Promise.all([
+      client.getCampaigns(fbAccountId, accessToken),
+      client.getAccountInsights(fbAccountId, 'campaign', 'today', accessToken).catch((err) => {
+        console.warn(`[AccountSync] Bulk campaign insights failed, continuing: ${err.message}`);
+        return {} as Record<string, any>;
+      }),
+    ]);
 
     for (const c of campaigns) {
-      const campSnapshot = await prisma.campaignSnapshot.upsert({
+      await prisma.campaignSnapshot.upsert({
         where: { fbCampaignId: c.id },
         update: {
           name: c.name,
@@ -135,8 +141,7 @@ export class AccountSyncService {
         },
       });
 
-      // Fetch campaign insight
-      const rawCampInsight = await client.getInsights(c.id, 'campaign', 'today', accessToken);
+      const rawCampInsight = campInsightsMap[c.id];
       if (rawCampInsight) {
         const resolved = MetricResolver.resolve(rawCampInsight);
         await prisma.performanceMetric.create({
@@ -161,8 +166,18 @@ export class AccountSyncService {
       }
     }
 
-    // 2. Fetch AdSets
-    const adSets = await client.getAdSets(fbAccountId, accessToken);
+    // 2. Fetch AdSets & bulk AdSet insights
+    const [adSets, adSetInsightsMap] = await Promise.all([
+      client.getAdSets(fbAccountId, accessToken).catch((err) => {
+        console.warn(`[AccountSync] getAdSets failed: ${err.message}`);
+        return [];
+      }),
+      client.getAccountInsights(fbAccountId, 'adset', 'today', accessToken).catch((err) => {
+        console.warn(`[AccountSync] Bulk adset insights failed, continuing: ${err.message}`);
+        return {} as Record<string, any>;
+      }),
+    ]);
+
     for (const s of adSets) {
       const campSnapshot = await prisma.campaignSnapshot.findUnique({
         where: { fbCampaignId: s.campaign_id },
@@ -197,8 +212,7 @@ export class AccountSyncService {
         },
       });
 
-      // Fetch adset insight
-      const rawAdSetInsight = await client.getInsights(s.id, 'adset', 'today', accessToken);
+      const rawAdSetInsight = adSetInsightsMap[s.id];
       if (rawAdSetInsight) {
         const resolved = MetricResolver.resolve(rawAdSetInsight);
         await prisma.performanceMetric.create({
@@ -223,8 +237,18 @@ export class AccountSyncService {
       }
     }
 
-    // 3. Fetch Ads
-    const ads = await client.getAds(fbAccountId, accessToken);
+    // 3. Fetch Ads & bulk Ad insights
+    const [ads, adInsightsMap] = await Promise.all([
+      client.getAds(fbAccountId, accessToken).catch((err) => {
+        console.warn(`[AccountSync] getAds failed: ${err.message}`);
+        return [];
+      }),
+      client.getAccountInsights(fbAccountId, 'ad', 'today', accessToken).catch((err) => {
+        console.warn(`[AccountSync] Bulk ad insights failed, continuing: ${err.message}`);
+        return {} as Record<string, any>;
+      }),
+    ]);
+
     for (const a of ads) {
       const adSetSnapshot = await prisma.adSetSnapshot.findUnique({
         where: { fbAdSetId: a.adset_id },
@@ -256,8 +280,7 @@ export class AccountSyncService {
         },
       });
 
-      // Fetch ad insight
-      const rawAdInsight = await client.getInsights(a.id, 'ad', 'today', accessToken);
+      const rawAdInsight = adInsightsMap[a.id];
       if (rawAdInsight) {
         const resolved = MetricResolver.resolve(rawAdInsight);
         await prisma.performanceMetric.create({

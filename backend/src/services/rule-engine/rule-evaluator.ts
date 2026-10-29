@@ -1,6 +1,7 @@
 import prisma from '../../db.js';
 import { CareRule } from '@prisma/client';
 import { MetaService } from '../meta-api/meta-service.js';
+import { AccountSyncService } from '../meta-api/account-sync.service.js';
 import { MetricResolver, ResolvedMetrics } from '../meta-api/metric-resolver.js';
 import { ConditionMatcher, MatchResult } from './condition-matcher.js';
 import { ActionExecutor, ActionResult } from './action-executor.js';
@@ -54,24 +55,62 @@ export class RuleEvaluator {
       };
     }
 
-    const { client, accessToken } = await MetaService.getClientForAccount(rule.adAccountId);
+    const { client, accessToken, fbAccountId } = await MetaService.getClientForAccount(rule.adAccountId);
     const targetEntities = await this.resolveTargetEntities(rule);
     const results: EvaluatedEntityResult[] = [];
 
-    let consecutiveViolations = rule.currentConsecutiveViolations;
-    let anyEntityViolated = false;
-
-    for (const entity of targetEntities) {
-      // Fetch insights
-      const level = rule.scope.toLowerCase() as 'campaign' | 'adset' | 'ad';
-      const rawInsight = await client.getInsights(
-        entity.id,
+    const level = rule.scope.toLowerCase() as 'campaign' | 'adset' | 'ad';
+    let bulkInsightsMap: Record<string, any> | null = null;
+    try {
+      bulkInsightsMap = await client.getAccountInsights(
+        fbAccountId,
         level,
         rule.reportingWindow.toLowerCase(),
         accessToken
       );
+    } catch (bulkErr: any) {
+      console.warn(`[RuleEvaluator] Bulk insights failed, falling back to per-entity insights: ${bulkErr.message}`);
+    }
+
+    let consecutiveViolations = rule.currentConsecutiveViolations;
+    let anyActiveViolationPending = false;
+    let anyEntityViolated = false;
+
+    for (const entity of targetEntities) {
+      // Fetch insights (prefer bulk map to avoid rate limit)
+      const rawInsight = bulkInsightsMap
+        ? bulkInsightsMap[entity.id] || null
+        : await client.getInsights(
+            entity.id,
+            level,
+            rule.reportingWindow.toLowerCase(),
+            accessToken
+          );
 
       const metrics = MetricResolver.resolve(rawInsight);
+
+      // Persist fresh metric snapshot so UI stays up-to-date
+      if (rawInsight && rule.reportingWindow.toUpperCase() === 'TODAY') {
+        await prisma.performanceMetric.create({
+          data: {
+            adAccountId: rule.adAccountId,
+            entityType: rule.scope,
+            entityId: entity.id,
+            datePreset: 'TODAY',
+            spend: metrics.spend,
+            impressions: metrics.impressions,
+            clicks: metrics.clicks,
+            cpm: metrics.cpm,
+            cpc: metrics.cpc,
+            ctr: metrics.ctr,
+            messagingConversations: metrics.messagingConversations,
+            costPerMessaging: metrics.costPerMessaging,
+            leads: metrics.leads,
+            purchases: metrics.purchases,
+            rawActionData: JSON.stringify(rawInsight.actions || []),
+          },
+        }).catch(() => {});
+      }
 
       const matchResult = ConditionMatcher.evaluate(
         {
@@ -105,6 +144,12 @@ export class RuleEvaluator {
               reason: matchResult.reason,
             });
           }
+          // If entity was not actually paused (e.g. Dry Run or Notify Only), keep counting
+          if (!actionResult || (actionResult.actionTaken !== 'PAUSED' && actionResult.actionTaken !== 'SKIPPED')) {
+            anyActiveViolationPending = true;
+          }
+        } else {
+          anyActiveViolationPending = true;
         }
       } else {
         // Reset consecutive count if condition is not met
@@ -157,7 +202,7 @@ export class RuleEvaluator {
     await prisma.careRule.update({
       where: { id: rule.id },
       data: {
-        currentConsecutiveViolations: anyEntityViolated ? consecutiveViolations + 1 : 0,
+        currentConsecutiveViolations: anyActiveViolationPending ? consecutiveViolations + 1 : 0,
         lastCheckedAt: new Date(),
         lastViolatedAt: anyEntityViolated ? new Date() : rule.lastViolatedAt,
       },
@@ -289,20 +334,25 @@ export class RuleEvaluator {
       });
       return campaigns.map((c: any) => ({ id: c.fbCampaignId, name: c.name }));
     } else if (rule.scope === 'ADSET') {
-      const adsets = await prisma.adSetSnapshot.findMany({
-        where: {
-          adAccountId: rule.adAccountId,
-          status: 'ACTIVE',
-          ...(rule.targetMode === 'SELECTED' && selectedIds.length > 0
-            ? {
-                OR: [
-                  { fbCampaignId: { in: selectedIds } },
-                  { fbAdSetId: { in: selectedIds } },
-                ],
-              }
-            : {}),
-        },
-      });
+      const whereClause = {
+        adAccountId: rule.adAccountId,
+        status: 'ACTIVE',
+        ...(rule.targetMode === 'SELECTED' && selectedIds.length > 0
+          ? {
+              OR: [
+                { fbCampaignId: { in: selectedIds } },
+                { fbAdSetId: { in: selectedIds } },
+              ],
+            }
+          : {}),
+      };
+      let adsets = await prisma.adSetSnapshot.findMany({ where: whereClause });
+      if (adsets.length === 0) {
+        await AccountSyncService.syncAdAccount(rule.adAccountId).catch((err) =>
+          console.warn(`[RuleEvaluator] Auto-sync AdSets failed: ${err.message}`)
+        );
+        adsets = await prisma.adSetSnapshot.findMany({ where: whereClause });
+      }
       return adsets.map((s: any) => ({ id: s.fbAdSetId, name: s.name }));
     } else {
       const ads = await prisma.adSnapshot.findMany({
