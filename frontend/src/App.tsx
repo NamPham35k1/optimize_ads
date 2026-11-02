@@ -84,7 +84,7 @@ export const App: React.FC = () => {
         ApiService.purgeMock().catch(() => {});
       }
 
-      const safeAccounts = rawAccounts.filter((acc) => {
+            let safeAccounts = rawAccounts.filter((acc) => {
         if (acc.isMock) return false;
         const nameLower = (acc.name || '').toLowerCase();
         if (nameLower.includes('mock') || nameLower.includes('demo account')) return false;
@@ -92,6 +92,24 @@ export const App: React.FC = () => {
         if (idLower.includes('mock')) return false;
         return true;
       });
+
+      // Auto-Restore: Nếu máy chủ Render vừa khởi động lại làm mất tài khoản, tự động khôi phục từ LocalStorage
+      if (safeAccounts.length === 0 && (status !== null || accList !== null)) {
+        const savedToken = localStorage.getItem('autoads_saved_meta_token');
+        const savedName = localStorage.getItem('autoads_saved_meta_account_name') || '';
+        if (savedToken) {
+          try {
+            console.log('[Auto-Restore] Máy chủ khởi động lại. Tự động kết nối lại tài khoản Meta từ bộ nhớ đệm...');
+            await ApiService.connectAccount(savedToken, savedName);
+            const restoredList = await ApiService.getAccounts().catch(() => []);
+            if (Array.isArray(restoredList) && restoredList.length > 0) {
+              safeAccounts = restoredList.filter(a => !a.isMock && !a.name.toLowerCase().includes('mock'));
+            }
+          } catch (rErr) {
+            console.warn('[Auto-Restore] Không thể khôi phục tài khoản:', rErr);
+          }
+        }
+      }
       setAccounts(safeAccounts);
 
       setSystemStatus(status);
@@ -123,13 +141,38 @@ export const App: React.FC = () => {
       setSelectedAccount(currentAcc);
 
       if (currentAcc) {
-        const [hier, rls, acts, sum, pStats] = await Promise.all([
+                let [hier, rls, acts, sum, pStats] = await Promise.all([
           ApiService.getHierarchy(currentAcc.id).catch(() => []),
           ApiService.getRules(currentAcc.id).catch(() => []),
           ApiService.getAutomationActions({ adAccountId: currentAcc.id }).catch(() => []),
           ApiService.getDashboardSummary(currentAcc.id).catch(() => null),
           ApiService.getPancakeStats(currentAcc.id).catch(() => null),
         ]);
+
+        // Backup hoặc tự động khôi phục quy tắc nếu máy chủ bị reset
+        if (Array.isArray(rls) && rls.length > 0) {
+          localStorage.setItem('autoads_saved_rules', JSON.stringify(rls));
+        } else if (currentAcc && (!rls || rls.length === 0)) {
+          const cachedRulesStr = localStorage.getItem('autoads_saved_rules');
+          if (cachedRulesStr) {
+            try {
+              const cachedRules = JSON.parse(cachedRulesStr);
+              if (Array.isArray(cachedRules) && cachedRules.length > 0) {
+                console.log('[Auto-Restore] Tự động tạo lại quy tắc từ bộ nhớ đệm...');
+                for (const r of cachedRules) {
+                  await ApiService.createRule({
+                    ...r,
+                    adAccountId: currentAcc.id,
+                  }).catch(() => {});
+                }
+                const freshRules = await ApiService.getRules(currentAcc.id).catch(() => []);
+                rls = freshRules;
+              }
+            } catch (e) {
+              console.warn('[Auto-Restore] Lỗi khi tạo lại quy tắc:', e);
+            }
+          }
+        }
         setCampaigns(Array.isArray(hier) ? hier : []);
         setRules(Array.isArray(rls) ? rls : []);
         setActions(Array.isArray(acts) ? acts : []);

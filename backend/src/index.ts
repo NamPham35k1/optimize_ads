@@ -80,6 +80,12 @@ async function bootstrap() {
 
     // 4. Start the background scheduler
     CareScheduler.start();
+    // 6. Keep-alive self ping to prevent Render free instance from idling
+    const keepAliveUrl = process.env.RENDER_EXTERNAL_URL || 'https://optimize-ads.onrender.com';
+    setInterval(() => {
+      fetch(`${keepAliveUrl}/health`).catch(() => {});
+    }, 10 * 60 * 1000);
+
 
     // 5. Start HTTP server
     app.listen(PORT, () => {

@@ -28,6 +28,7 @@ export const AccountsView: React.FC<Props> = ({
   onRefresh,
 }) => {
   const [showConnectModal, setShowConnectModal] = useState(false);
+  const [showGuideModal, setShowGuideModal] = useState(false);
   const [accessToken, setAccessToken] = useState('');
   const [accountName, setAccountName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -56,6 +57,8 @@ export const AccountsView: React.FC<Props> = ({
     setError(null);
     try {
       const res = await ApiService.connectAccount(accessToken, accountName);
+      localStorage.setItem("autoads_saved_meta_token", accessToken.trim());
+      if (accountName.trim()) localStorage.setItem("autoads_saved_meta_account_name", accountName.trim());
       setSuccessMsg(res.message);
       setAccessToken('');
       setAccountName('');
@@ -88,6 +91,8 @@ export const AccountsView: React.FC<Props> = ({
     setLoading(true);
     try {
       await ApiService.deleteAccount(id);
+      localStorage.removeItem("autoads_saved_meta_token");
+      localStorage.removeItem("autoads_saved_meta_account_name");
       onRefresh();
     } catch (err: any) {
       alert(`Lỗi khi xóa tài khoản: ${err.response?.data?.error || err.message}`);
@@ -345,6 +350,117 @@ export const AccountsView: React.FC<Props> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Guide Modal: Long-Lived & Permanent Meta Token */}
+      {showGuideModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center space-x-2 text-indigo-400 font-bold text-base">
+                <Key className="w-5 h-5" />
+                <span>Hướng Dẫn Lấy Access Token Vĩnh Viễn Hoặc Dài Hạn (Meta)</span>
+              </div>
+              <button
+                onClick={() => setShowGuideModal(false)}
+                className="text-slate-400 hover:text-white text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs text-slate-300 leading-relaxed">
+              {/* Method 1: System User (Permanent) */}
+              <div className="bg-slate-950/80 border border-emerald-500/30 rounded-xl p-4 space-y-2.5">
+                <div className="flex items-center space-x-2 text-emerald-400 font-bold text-sm">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Cách 1: Lấy Token VĨNH VIỄN qua BM System User (Khuyên dùng nhất ⭐)</span>
+                </div>
+                <p className="text-slate-400">
+                  Token này gắn với Doanh nghiệp (BM), <strong>không bao giờ hết hạn</strong> và không bị phụ thuộc vào tài khoản Facebook cá nhân.
+                </p>
+                <ol className="list-decimal pl-5 space-y-1.5 text-slate-300">
+                  <li>
+                    Truy cập trang Cài đặt Doanh nghiệp:{' '}
+                    <a
+                      href="https://business.facebook.com/settings/system-users"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-400 hover:underline inline-flex items-center gap-0.5"
+                    >
+                      business.facebook.com/settings/system-users <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </li>
+                  <li>
+                    Tại mục <strong>Người dùng</strong> &gt; <strong>Người dùng hệ thống (System Users)</strong> &gt; Bấm nút <strong>Thêm</strong> &gt; Đặt tên (ví dụ: <code className="text-indigo-300 font-mono">ToolAutoAds</code>) &gt; Chọn vai trò <strong>Quản trị viên (Admin)</strong>.
+                  </li>
+                  <li>
+                    Bấm vào tên người dùng vừa tạo &gt; Bấm nút <strong>Gán tài sản (Add Assets)</strong> &gt; Chọn <strong>Tài khoản quảng cáo</strong> của bạn &gt; Bật công tắc <strong>Toàn quyền quản lý (Full Control)</strong> &gt; Bấm <strong>Lưu thay đổi</strong>.
+                  </li>
+                  <li>
+                    Bấm nút <strong>Tạo mã mới (Generate New Token)</strong>:
+                    <ul className="list-disc pl-5 mt-1 space-y-1 text-slate-400">
+                      <li>Chọn <strong>Ứng dụng (App)</strong> của bạn.</li>
+                      <li>Mục <strong>Hạn của mã (Token Expiration)</strong>: Chọn <strong className="text-emerald-400 font-bold">Không bao giờ (Never)</strong>.</li>
+                      <li>Tích chọn 3 quyền bắt buộc: <code className="text-amber-300">ads_read</code>, <code className="text-amber-300">ads_management</code>, <code className="text-amber-300">read_insights</code>.</li>
+                    </ul>
+                  </li>
+                  <li>
+                    Bấm <strong>Tạo mã truy cập</strong> &gt; Sao chép mã (bắt đầu bằng <code className="text-indigo-300">EAAB...</code>) và dán vào tool.
+                  </li>
+                </ol>
+              </div>
+
+              {/* Method 2: Extend to 60 days */}
+              <div className="bg-slate-950/80 border border-blue-500/30 rounded-xl p-4 space-y-2.5">
+                <div className="flex items-center space-x-2 text-blue-400 font-bold text-sm">
+                  <Key className="w-4 h-4" />
+                  <span>Cách 2: Đổi Token ngắn hạn sang Token 60 NGÀY (Nhanh trong 1 phút)</span>
+                </div>
+                <p className="text-slate-400">
+                  Nếu bạn đã có User Token thông thường từ Graph API Explorer (hạn 1-2 tiếng), bạn có thể gia hạn thành <strong>60 ngày</strong>:
+                </p>
+                <ol className="list-decimal pl-5 space-y-1.5 text-slate-300">
+                  <li>
+                    Truy cập công cụ Kiểm tra mã truy cập:{' '}
+                    <a
+                      href="https://developers.facebook.com/tools/debug/accesstoken/"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-400 hover:underline inline-flex items-center gap-0.5"
+                    >
+                      developers.facebook.com/tools/debug/accesstoken/ <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </li>
+                  <li>
+                    Dán mã Token hiện tại của bạn vào ô &gt; Bấm <strong>Gỡ lỗi (Debug)</strong>.
+                  </li>
+                  <li>
+                    Cuộn xuống dưới cùng của trang &gt; Bấm nút <strong>Mở rộng mã truy cập (Extend Access Token)</strong>.
+                  </li>
+                  <li>
+                    Facebook sẽ sinh ra một chuỗi mã mới có hạn <strong>60 ngày</strong>. Copy mã đó và dán vào tool.
+                  </li>
+                </ol>
+              </div>
+
+              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400">
+                💡 <strong>Tính năng Tự Động Khôi Phục:</strong> Tool đã được trang bị bộ nhớ đệm tự động. Token sau khi dán vào tool sẽ được lưu an toàn trên trình duyệt của bạn. Ngay cả khi máy chủ Render khởi động lại, tool sẽ tự động nạp lại tài khoản và quy tắc mà bạn không cần phải nhập lại!
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-800">
+              <button
+                onClick={() => {
+                  setShowGuideModal(false);
+                  setShowConnectModal(true);
+                }}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-blue-600/20 cursor-pointer"
+              >
+                Đã Hiểu, Kết Nối Ngay
+              </button>
+            </div>
           </div>
         </div>
       )}
