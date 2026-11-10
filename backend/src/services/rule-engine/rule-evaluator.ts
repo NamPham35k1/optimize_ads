@@ -55,6 +55,11 @@ export class RuleEvaluator {
       };
     }
 
+    // Đồng bộ danh sách chiến dịch & nhóm quảng cáo mới nhất từ Facebook trước khi đánh giá quy tắc
+    await AccountSyncService.syncAdAccountIfNeeded(rule.adAccountId, 45).catch((err) =>
+      console.warn(`[RuleEvaluator] Pre-evaluation sync skipped: ${err.message}`)
+    );
+
     const { client, accessToken, fbAccountId } = await MetaService.getClientForAccount(rule.adAccountId);
     const targetEntities = await this.resolveTargetEntities(rule);
     const results: EvaluatedEntityResult[] = [];

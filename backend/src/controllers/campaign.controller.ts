@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../db.js';
 import { MetaService } from '../services/meta-api/meta-service.js';
+import { AccountSyncService } from '../services/meta-api/account-sync.service.js';
 import { TelegramService } from '../services/telegram/telegram.service.js';
 
 
@@ -8,6 +9,13 @@ export class CampaignController {
   public static async getHierarchy(req: Request, res: Response): Promise<void> {
     try {
       const { adAccountId } = req.query;
+
+      // Tự động đồng bộ chiến dịch mới từ Meta nếu đã quá 45 giây từ lần đồng bộ gần nhất
+      if (adAccountId) {
+        await AccountSyncService.syncAdAccountIfNeeded(String(adAccountId), 45).catch((err) =>
+          console.warn('[CampaignController] Auto-sync skipped:', err.message)
+        );
+      }
 
       const whereClause = adAccountId ? { adAccountId: String(adAccountId) } : {};
 
@@ -94,6 +102,14 @@ export class CampaignController {
           metrics: campMetric,
           adSets,
         };
+      });
+
+      hierarchy.sort((a, b) => {
+        if (a.status !== b.status) {
+          if (a.status === 'ACTIVE') return -1;
+          if (b.status === 'ACTIVE') return 1;
+        }
+        return b.fbCampaignId.localeCompare(a.fbCampaignId, undefined, { numeric: true });
       });
 
       res.json({ success: true, data: hierarchy });

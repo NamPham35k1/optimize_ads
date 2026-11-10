@@ -40,6 +40,20 @@ export const CampaignsView: React.FC<Props> = ({
   const [sortField, setSortField] = useState<'spend' | 'costPerMessaging' | 'messagingConversations'>('spend');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [syncingNew, setSyncingNew] = useState(false);
+
+  const handleSyncNewCampaigns = async () => {
+    if (!selectedAccount?.id) return;
+    setSyncingNew(true);
+    try {
+      await ApiService.syncAccount(selectedAccount.id);
+      onRefresh();
+    } catch (err: any) {
+      alert(`Lỗi khi đồng bộ chiến dịch mới: ${err.message}`);
+    } finally {
+      setSyncingNew(false);
+    }
+  };
 
   const handleToggleStatus = async (
     entityId: string,
@@ -105,15 +119,22 @@ export const CampaignsView: React.FC<Props> = ({
     return true;
   });
 
-  // Sort
+  // Sort: Ưu tiên chiến dịch ĐANG CHẠY (ACTIVE) lên đầu, sau đó theo chi tiêu và ID chiến dịch mới nhất
   filteredCampaigns.sort((a, b) => {
+    if (statusFilter === 'ALL' && a.status !== b.status) {
+      if (a.status === 'ACTIVE') return -1;
+      if (b.status === 'ACTIVE') return 1;
+    }
     const aVal = a.metrics ? (a.metrics as any)[sortField] || 0 : 0;
     const bVal = b.metrics ? (b.metrics as any)[sortField] || 0 : 0;
-    return sortOrder === 'desc' ? bVal - aVal : aVal - bVal;
+    if (aVal !== bVal) {
+      return sortOrder === 'desc' ? bVal - aVal : aVal - bVal;
+    }
+    return b.fbCampaignId.localeCompare(a.fbCampaignId, undefined, { numeric: true });
   });
 
   const getStatusBadge = (status: string, isPausedBySystem: boolean) => {
-    if (isPausedBySystem) {
+    if (status !== 'ACTIVE' && isPausedBySystem) {
       return (
         <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
           <Pause className="w-3 h-3" />
@@ -175,6 +196,17 @@ export const CampaignsView: React.FC<Props> = ({
               </button>
             ))}
           </div>
+
+          {/* Sync New Campaigns Button */}
+          <button
+            onClick={handleSyncNewCampaigns}
+            disabled={syncingNew}
+            className="px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 rounded-xl text-blue-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all"
+            title="Kéo ngay các chiến dịch mới vừa tạo trên Facebook về bảng"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${syncingNew ? 'animate-spin text-blue-400' : ''}`} />
+            <span>{syncingNew ? 'Đang tải Camp mới...' : 'Đồng bộ Camp mới'}</span>
+          </button>
 
           {/* Sort selection */}
           <button

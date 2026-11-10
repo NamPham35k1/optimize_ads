@@ -64,6 +64,22 @@ export class RuleController {
         return;
       }
 
+      // Prevent duplicate identical rules on the same account
+      const existingDuplicate = await prisma.careRule.findFirst({
+        where: {
+          adAccountId,
+          name,
+          scope,
+          metricType,
+          operator,
+          thresholdValue: parseFloat(thresholdValue),
+        },
+      });
+      if (existingDuplicate) {
+        res.status(200).json({ success: true, data: existingDuplicate });
+        return;
+      }
+
       const rule = await prisma.careRule.create({
         data: {
           adAccountId,

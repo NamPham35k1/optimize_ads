@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AlertTriangle, WifiOff } from 'lucide-react';
 import { BackendConnectionBanner, ConnectionState } from './components/layout/BackendConnectionBanner';
 import { Sidebar, NavTab } from './components/layout/Sidebar';
@@ -42,6 +42,7 @@ export const App: React.FC = () => {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const isRestoringRef = useRef(false);
 
   const [backendError, setBackendError] = useState<string | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState>('connecting');
@@ -94,7 +95,8 @@ export const App: React.FC = () => {
       });
 
       // Auto-Restore: Nếu máy chủ Render vừa khởi động lại làm mất tài khoản, tự động khôi phục từ LocalStorage
-      if (safeAccounts.length === 0 && (status !== null || accList !== null)) {
+      if (safeAccounts.length === 0 && (status !== null || accList !== null) && !isRestoringRef.current) {
+        isRestoringRef.current = true;
         const savedToken = localStorage.getItem('autoads_saved_meta_token');
         const savedName = localStorage.getItem('autoads_saved_meta_account_name') || '';
         if (savedToken) {
@@ -107,6 +109,8 @@ export const App: React.FC = () => {
             }
           } catch (rErr) {
             console.warn('[Auto-Restore] Không thể khôi phục tài khoản:', rErr);
+          } finally {
+            isRestoringRef.current = false;
           }
         }
       }
@@ -151,7 +155,8 @@ export const App: React.FC = () => {
 
         // Backup hoặc tự động khôi phục quy tắc nếu máy chủ bị reset
         if (Array.isArray(rls) && rls.length > 0) {
-          localStorage.setItem('autoads_saved_rules', JSON.stringify(rls));
+          const uniqueRules = rls.filter((r, idx, arr) => arr.findIndex(x => x.name === r.name && x.scope === r.scope && x.metricType === r.metricType && x.thresholdValue === r.thresholdValue) === idx);
+          localStorage.setItem('autoads_saved_rules', JSON.stringify(uniqueRules));
         } else if (currentAcc && (!rls || rls.length === 0)) {
           const cachedRulesStr = localStorage.getItem('autoads_saved_rules');
           if (cachedRulesStr) {
@@ -276,6 +281,19 @@ export const App: React.FC = () => {
     }
   };
 
+  // Manual Refresh: sync latest campaigns from Meta first, then reload UI
+  const handleManualRefresh = async () => {
+    setLoading(true);
+    try {
+      if (selectedAccount?.id) {
+        await ApiService.syncAccount(selectedAccount.id).catch(() => {});
+      }
+      await loadData(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Trigger manual scheduler run
   const handleTriggerScheduler = async () => {
     setLoading(true);
@@ -346,7 +364,7 @@ export const App: React.FC = () => {
             emergencyStop={systemStatus?.emergencyStop || false}
             onToggleEmergencyStop={handleToggleEmergencyStop}
             onTriggerScheduler={handleTriggerScheduler}
-            onRefreshData={loadData}
+            onRefreshData={handleManualRefresh}
             unreadNotificationsCount={unreadCount}
             onOpenNotifications={() => setIsNotificationsOpen(true)}
             loading={loading}
